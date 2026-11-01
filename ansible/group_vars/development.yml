@@ -1,0 +1,12 @@
+# ===================================================================
+# GRID Ansible Development Variables (development.yml)
+# ===================================================================
+
+deploy_env: development
+host_port: 8081
+server_port: 8080
+spring_profiles_active: "mysql,dev"
+debug_mode: true
+
+health_check_retries: 25
+health_check_delay: 2

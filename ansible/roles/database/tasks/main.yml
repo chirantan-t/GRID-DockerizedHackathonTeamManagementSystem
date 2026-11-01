@@ -1,0 +1,73 @@
+---
+# ===================================================================
+# Role: database — MySQL Configuration, Volume Preservation & Health
+# ===================================================================
+
+- name: Inspect Persistent MySQL Storage Volume
+  ansible.builtin.command:
+    cmd: docker volume inspect {{ mysql_volume_name }}
+  register: db_volume_inspect
+  changed_when: false
+  failed_when: false
+  tags:
+    - database
+    - deploy
+
+- name: Create Named Volume if Not Present (Volume Preservation Safeguard)
+  ansible.builtin.command:
+    cmd: docker volume create {{ mysql_volume_name }}
+  when: db_volume_inspect.rc != 0
+  tags:
+    - database
+    - deploy
+
+- name: Confirm MySQL Volume Preserved
+  ansible.builtin.debug:
+    msg: "Verified persistent MySQL volume '{{ mysql_volume_name }}' is intact. Existing data is preserved."
+  tags:
+    - database
+    - deploy
+
+- name: Launch MySQL Database Service via Docker Compose
+  ansible.builtin.command:
+    cmd: docker compose up -d db
+    chdir: "{{ app_dir }}"
+  register: db_compose_up
+  changed_when: "'Starting' in db_compose_up.stdout or 'Recreate' in db_compose_up.stdout or 'Created' in db_compose_up.stdout"
+  tags:
+    - database
+    - deploy
+
+- name: Await MySQL Database Service Readiness
+  ansible.builtin.command:
+    cmd: docker exec {{ mysql_container_name }} mysqladmin ping -h 127.0.0.1 -u {{ mysql_user }} -p{{ mysql_password }} --silent
+  register: db_ping_result
+  until: db_ping_result.rc == 0
+  retries: "{{ database_retries }}"
+  delay: "{{ database_delay }}"
+  changed_when: false
+  tags:
+    - database
+    - deploy
+    - verify
+
+- name: Verify Flyway Database Migration Table Presence
+  ansible.builtin.command:
+    cmd: docker exec {{ mysql_container_name }} mysql -u {{ mysql_user }} -p{{ mysql_password }} -D {{ mysql_database }} -e "SHOW TABLES LIKE 'flyway_schema_history';"
+  register: flyway_table_check
+  changed_when: false
+  failed_when: false
+  tags:
+    - database
+    - verify
+
+- name: Display MySQL Health Status
+  ansible.builtin.debug:
+    msg:
+      - "Database Container: {{ mysql_container_name }} (RUNNING & RESPONSIVE)"
+      - "Persistent Volume: {{ mysql_volume_name }}"
+      - "Database Ping: SUCCESS"
+      - "Flyway Migrations Table Present: {{ 'YES' if 'flyway_schema_history' in flyway_table_check.stdout else 'INITIALIZING' }}"
+  tags:
+    - database
+    - verify

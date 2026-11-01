@@ -1,0 +1,6 @@
+---
+# Handlers for role: common
+- name: Reload systemd daemon
+  ansible.builtin.systemd:
+    daemon_reload: yes
+  when: ansible_service_mgr == 'systemd'

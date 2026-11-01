@@ -1,0 +1,20 @@
+---
+# ===================================================================
+# Playbook: deploy.yml — Database and Application Deployment
+# ===================================================================
+
+- name: Deploy GRID Application and Database Multi-Container Stack
+  hosts: hackathon_servers
+  gather_facts: yes
+
+  pre_tasks:
+    - name: Display Deployment Parameters
+      ansible.builtin.debug:
+        msg: "Deploying GRID release {{ release_tag | default('1.0.0') }} to {{ inventory_hostname }} on port {{ host_port }}"
+      tags: [always]
+
+  roles:
+    - role: database
+      tags: [database, deploy]
+    - role: application
+      tags: [application, app, deploy]

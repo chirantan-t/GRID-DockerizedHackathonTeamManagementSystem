@@ -1,24 +1,53 @@
 ---
 # ===================================================================
-# Role: common - System Baseline & Deployment User Configuration
+# Role: common — System Baseline & Environment Setup
 # ===================================================================
 
-- name: Install Essential Baseline Packages
+- name: Verify Supported Operating System Family
+  ansible.builtin.assert:
+    that:
+      - ansible_os_family in ['Debian', 'RedHat', 'Rocky', 'Ubuntu', 'Alpine'] or ansible_connection == 'local'
+    fail_msg: "Unsupported OS family: {{ ansible_os_family | default('unknown') }}. Target must be Linux, WSL2, or local container."
+    success_msg: "Target OS family verified: {{ ansible_os_family | default('local') }}."
+  tags:
+    - common
+    - setup
+
+- name: Install Essential Baseline Packages (Debian/Ubuntu/RHEL)
   ansible.builtin.package:
-    name:
-      - curl
-      - git
-      - tar
-      - ca-certificates
+    name: "{{ baseline_packages }}"
     state: present
-  when: ansible_os_family in ['Debian', 'RedHat']
+  when:
+    - ansible_os_family in ['Debian', 'RedHat']
+    - ansible_user_id == 'root' or (ansible_pkg_mgr is defined and ansible_pkg_mgr in ['apt', 'dnf', 'yum'])
+  ignore_errors: yes
+  tags:
+    - common
+    - setup
+
+- name: Install Essential Baseline Packages (Alpine Linux)
+  community.general.apk:
+    name: "{{ baseline_packages }}"
+    state: present
+  when:
+    - ansible_os_family == 'Alpine'
+    - ansible_user_id == 'root'
+  ignore_errors: yes
+  tags:
+    - common
+    - setup
 
 - name: Ensure Deployment Group Exists
   ansible.builtin.group:
     name: "{{ deploy_group }}"
     state: present
+  when: ansible_os_family != 'Windows'
+  ignore_errors: yes
+  tags:
+    - common
+    - setup
 
-- name: Create Dedicated Deployment User with Restricted Sudo Access
+- name: Create Dedicated Deployment User
   ansible.builtin.user:
     name: "{{ deploy_user }}"
     group: "{{ deploy_group }}"
@@ -26,11 +55,29 @@
     home: "/home/{{ deploy_user }}"
     create_home: yes
     state: present
+  when: ansible_os_family != 'Windows'
+  ignore_errors: yes
+  tags:
+    - common
+    - setup
 
-- name: Ensure Application Directory Exists with Correct Permissions
+- name: Ensure Application Root Directory Exists
   ansible.builtin.file:
     path: "{{ app_dir }}"
     state: directory
-    owner: "{{ deploy_user }}"
-    group: "{{ deploy_group }}"
     mode: '0755'
+  tags:
+    - common
+    - setup
+
+- name: Ensure Subdirectories Exist (nginx, scripts)
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: '0755'
+  loop:
+    - "{{ app_dir }}/nginx"
+    - "{{ app_dir }}/scripts"
+  tags:
+    - common
+    - setup

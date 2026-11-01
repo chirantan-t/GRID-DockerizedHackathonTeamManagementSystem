@@ -1,0 +1,11 @@
+---
+# Defaults for role: database
+mysql_container_name: hackathon_mysql
+mysql_database: grid_db
+mysql_user: grid_user
+mysql_password: grid_pass
+mysql_root_password: grid_root_pass
+mysql_volume_name: hackathon_mysql_data
+mysql_port: 3306
+database_retries: 25
+database_delay: 2

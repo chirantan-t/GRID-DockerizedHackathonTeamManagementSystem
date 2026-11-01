@@ -1,0 +1,11 @@
+---
+# Defaults for role: common
+deploy_user: deployuser
+deploy_group: deploygroup
+app_dir: /opt/hackathon-team-management-system
+baseline_packages:
+  - curl
+  - git
+  - tar
+  - ca-certificates
+  - jq

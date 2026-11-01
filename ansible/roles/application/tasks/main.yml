@@ -1,0 +1,96 @@
+---
+# ===================================================================
+# Role: application — Multi-Container Application Stack Deployment
+# ===================================================================
+
+- name: Deploy Environment Configuration (.env) from Jinja2 Template
+  ansible.builtin.template:
+    src: env.j2
+    dest: "{{ app_dir }}/.env"
+    mode: '0644'
+  notify: Restart application stack
+  tags:
+    - app
+    - application
+    - deploy
+
+- name: Deploy Nginx Reverse Proxy Configuration
+  ansible.builtin.template:
+    src: default.conf.j2
+    dest: "{{ item }}"
+    mode: '0644'
+  loop:
+    - "{{ app_dir }}/deployment/nginx/default.conf"
+    - "{{ app_dir }}/nginx/default.conf"
+  ignore_errors: yes
+  notify: Restart application stack
+  tags:
+    - app
+    - application
+    - deploy
+
+- name: Deploy docker-compose.yml Specification (Remote Target)
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../../docker-compose.yml"
+    dest: "{{ app_dir }}/docker-compose.yml"
+    mode: '0644'
+  when: app_dir != (playbook_dir + '/../..')
+  notify: Restart application stack
+  tags:
+    - app
+    - application
+    - deploy
+
+- name: Launch Multi-Container Application Services via Docker Compose
+  ansible.builtin.command:
+    cmd: docker compose up -d --remove-orphans
+    chdir: "{{ app_dir }}"
+  environment:
+    IMAGE_TAG: "{{ release_tag }}"
+    APP_HOST_PORT: "{{ host_port }}"
+    NGINX_PORT: "{{ host_port }}"
+  register: compose_up_result
+  changed_when: "'Starting' in compose_up_result.stdout or 'Recreate' in compose_up_result.stdout or 'Created' in compose_up_result.stdout"
+  tags:
+    - app
+    - application
+    - deploy
+
+- name: Verify Backend Container State
+  ansible.builtin.command:
+    cmd: docker inspect --format='{{ "{{" }}.State.Status{{ "}}" }}' hackathon_backend
+  register: backend_container_status
+  changed_when: false
+  until: backend_container_status.stdout == "running"
+  retries: 15
+  delay: 2
+  tags:
+    - app
+    - application
+    - deploy
+    - verify
+
+- name: Verify Frontend Container State
+  ansible.builtin.command:
+    cmd: docker inspect --format='{{ "{{" }}.State.Status{{ "}}" }}' hackathon_frontend
+  register: frontend_container_status
+  changed_when: false
+  until: frontend_container_status.stdout == "running"
+  retries: 15
+  delay: 2
+  tags:
+    - app
+    - application
+    - deploy
+    - verify
+
+- name: Display Application Deployment Status
+  ansible.builtin.debug:
+    msg:
+      - "Backend Container: hackathon_backend ({{ backend_container_status.stdout }})"
+      - "Frontend Container: hackathon_frontend ({{ frontend_container_status.stdout }})"
+      - "Host Web Port: {{ host_port }}"
+  tags:
+    - app
+    - application
+    - deploy

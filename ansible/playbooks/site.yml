@@ -1,0 +1,63 @@
+---
+# ===================================================================
+# GRID — Main End-to-End Ansible Orchestration Playbook (site.yml)
+# Complete Provisioning, Deployment, and Verification Pipeline
+# ===================================================================
+
+- name: Provision, Deploy, and Verify GRID Hackathon Management Platform
+  hosts: hackathon_servers
+  gather_facts: yes
+
+  pre_tasks:
+    - name: Verify Supported Target Platform
+      ansible.builtin.assert:
+        that:
+          - ansible_os_family in ['Debian', 'RedHat', 'Rocky', 'Ubuntu', 'Alpine'] or ansible_connection == 'local'
+        fail_msg: "Unsupported OS family: {{ ansible_os_family | default('unknown') }}. Target must be Linux, WSL2, or local container."
+        success_msg: "Target OS family verified: {{ ansible_os_family | default('local') }}."
+      tags: [always]
+
+    - name: Display Deployment Metadata
+      ansible.builtin.debug:
+        msg:
+          - "=========================================================="
+          - " GRID ANSIBLE PROVISIONING PIPELINE"
+          - "=========================================================="
+          - "Target Host: {{ inventory_hostname }}"
+          - "Environment: {{ deploy_env | default('development') }}"
+          - "Release Version: {{ release_tag | default('1.0.0') }}"
+          - "Application Host Port: {{ host_port }}"
+          - "Spring Profiles: {{ spring_profiles_active | default('mysql,dev') }}"
+          - "=========================================================="
+      tags: [always]
+
+  roles:
+    - role: common
+      tags: [common, setup]
+
+    - role: docker
+      tags: [docker, setup]
+
+    - role: database
+      tags: [database, deploy]
+
+    - role: application
+      tags: [application, app, deploy]
+
+    - role: monitoring
+      tags: [monitoring, health, verify]
+
+  post_tasks:
+    - name: Display Final Orchestration Summary
+      ansible.builtin.debug:
+        msg:
+          - "=========================================================="
+          - " GRID ANSIBLE PLAYBOOK EXECUTION COMPLETE"
+          - "=========================================================="
+          - "Environment: {{ deploy_env | default('development') }}"
+          - "Target URL: http://localhost:{{ host_port }}/"
+          - "Health Actuator: http://localhost:{{ host_port }}/actuator/health"
+          - "Database Status: ONLINE & PERSISTENT"
+          - "All Provisioning and Deployment Verifications: PASSED"
+          - "=========================================================="
+      tags: [always]

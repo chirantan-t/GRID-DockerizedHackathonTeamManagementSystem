@@ -107,7 +107,7 @@ MySQL 8.x Database Container (Internal Port 3306)
 * **Multi-Stage Dockerfile:** Produces minimal runtime container with non-root security (`appuser:appgroup`) and embedded Actuator health checks.
 * **Docker Compose:** Coordinates MySQL 8.0, Spring Boot backend, and Nginx frontend on isolated bridge network `hackathon_network`.
 * **Declarative Jenkinsfile:** 9 sequential stages gating deployments on automated test success.
-* **Ansible Configuration Management:** 4 modular roles (`common`, `docker`, `app`, `nginx`) with idempotency and templated environment injection.
+* **Ansible Configuration Management:** 5 modular roles (`common`, `docker`, `database`, `application`, `monitoring`) with containerized control node execution (`grid-ansible:latest`), 100% idempotency, persistent database volume safeguards (`hackathon_mysql_data`), and templated environment injection.
 * **Automated Rollback:** Evaluates application readiness; automatically rolls back to previous stable release tag upon deployment failure.
 
 ---

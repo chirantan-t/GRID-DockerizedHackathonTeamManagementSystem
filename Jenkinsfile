@@ -254,21 +254,28 @@ pipeline {
         }
 
         // ===============================================================
-        // STAGE 9: DEPLOYMENT
+        // STAGE 9: ANSIBLE PROVISIONING & DEPLOYMENT
         // ===============================================================
-        stage('Deployment') {
+        stage('Ansible Provisioning & Deployment') {
             steps {
                 echo "=========================================================="
-                echo " STAGE 9: Deploying Multi-Container Stack via Docker Compose..."
-                echo " Environment: ${params.DEPLOY_ENV} | Host Port: ${params.APP_HOST_PORT}"
+                echo " STAGE 9: Automated Provisioning & Deployment via Ansible..."
+                echo " Inventory: ansible/inventory/${params.DEPLOY_ENV}.ini"
+                echo " Playbook:  ansible/playbooks/site.yml"
+                echo " Release:   ${DOCKER_TAG} | Host Port: ${params.APP_HOST_PORT}"
                 echo "=========================================================="
                 script {
+                    def inventoryFile = "ansible/inventory/${params.DEPLOY_ENV}.ini"
                     if (isUnix()) {
-                        sh 'docker compose up -d --remove-orphans || docker-compose up -d --remove-orphans'
-                        sh 'docker compose ps || docker-compose ps'
+                        sh """
+                            chmod +x ansible/ansible-runner.sh
+                            ./ansible/ansible-runner.sh -i ${inventoryFile} ansible/playbooks/site.yml \
+                                --extra-vars "release_tag=${RELEASE_VERSION} host_port=${params.APP_HOST_PORT} deploy_env=${params.DEPLOY_ENV}"
+                        """
                     } else {
-                        bat 'where docker-compose.exe >nul 2>&1 && docker-compose.exe up -d --remove-orphans || docker.exe compose up -d --remove-orphans'
-                        bat 'where docker-compose.exe >nul 2>&1 && docker-compose.exe ps || docker.exe compose ps'
+                        bat """
+                            call ansible-runner.bat -i ${inventoryFile} ansible/playbooks/site.yml --extra-vars "release_tag=%RELEASE_VERSION% host_port=%APP_HOST_PORT% deploy_env=%DEPLOY_ENV%"
+                        """
                     }
                 }
             }

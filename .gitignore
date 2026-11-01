@@ -57,3 +57,5 @@ h2_data/
 # OS Temporary Files
 tmp/
 temp/
+
+nginx/

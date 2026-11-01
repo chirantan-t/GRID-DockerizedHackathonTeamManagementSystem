@@ -1,0 +1,7 @@
+---
+# Defaults for role: monitoring
+host_port: 8081
+health_check_url: "http://localhost:{{ host_port }}/actuator/health"
+frontend_check_url: "http://localhost:{{ host_port }}/"
+monitoring_retries: 20
+monitoring_delay: 3

@@ -1,0 +1,12 @@
+# ===================================================================
+# GRID Ansible Production Variables (production.yml)
+# ===================================================================
+
+deploy_env: production
+host_port: 80
+server_port: 8080
+spring_profiles_active: "mysql,prod"
+debug_mode: false
+
+health_check_retries: 30
+health_check_delay: 4

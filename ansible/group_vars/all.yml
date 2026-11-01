@@ -1,28 +1,34 @@
 # ===================================================================
-# Ansible Global Group Variables
+# GRID Ansible Global Group Variables (all.yml)
 # ===================================================================
 
 app_name: hackathon-team-management-system
-app_dir: /opt/hackathon-team-management-system
+app_directory: /workspace/hackathon-team-management-system
+app_dir: "{{ app_directory }}"
 deploy_user: deployuser
 deploy_group: deploygroup
 
-# Network & Ports
+# Network Ports
 host_port: 8081
 server_port: 8080
 mysql_internal_port: 3306
 
-# Release Version
+# Container Image Tags & Names
 image_tag: "1.0.0"
+release_tag: "1.0.0"
+backend_image: "hackathon-team-management-backend"
+frontend_image: "hackathon-team-management-frontend"
 docker_registry: ""
 
-# Database Credentials
-mysql_database: hackathondb
-mysql_user: hackathon_user
-mysql_password: "{{ lookup('env', 'MYSQL_PASSWORD') | default('hackathon_pass', true) }}"
-mysql_root_password: "{{ lookup('env', 'MYSQL_ROOT_PASSWORD') | default('root_pass', true) }}"
+# Database Credentials & Volume Preservation (Aligned with docker-compose.yml)
+mysql_database: "{{ lookup('env', 'MYSQL_DATABASE') | default('grid_db', true) }}"
+mysql_user: "{{ lookup('env', 'MYSQL_USER') | default('grid_user', true) }}"
+mysql_password: "{{ lookup('env', 'MYSQL_PASSWORD') | default('grid_pass', true) }}"
+mysql_root_password: "{{ lookup('env', 'MYSQL_ROOT_PASSWORD') | default('grid_root_pass', true) }}"
+mysql_volume_name: "hackathon_mysql_data"
 
-# Health Check Settings
+# Health Verification Settings
 health_check_url: "http://localhost:{{ host_port }}/actuator/health"
-health_check_retries: 15
-health_check_delay: 3
+frontend_check_url: "http://localhost:{{ host_port }}/"
+health_check_retries: 25
+health_check_delay: 2

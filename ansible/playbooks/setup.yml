@@ -1,0 +1,20 @@
+---
+# ===================================================================
+# Playbook: setup.yml — Target Host Environment & Docker Readiness
+# ===================================================================
+
+- name: Setup Target Environment and Verify Docker Readiness
+  hosts: hackathon_servers
+  gather_facts: yes
+
+  pre_tasks:
+    - name: Display Setup Target Information
+      ansible.builtin.debug:
+        msg: "Initializing environment setup on {{ inventory_hostname }} (OS: {{ ansible_os_family | default('Unknown') }})"
+      tags: [always]
+
+  roles:
+    - role: common
+      tags: [common, setup]
+    - role: docker
+      tags: [docker, setup]

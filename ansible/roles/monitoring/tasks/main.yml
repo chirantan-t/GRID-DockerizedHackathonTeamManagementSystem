@@ -1,0 +1,95 @@
+---
+# ===================================================================
+# Role: monitoring — Application Health, Database Connectivity & Uptime
+# ===================================================================
+
+- name: Probe Application Health via Spring Boot Actuator
+  ansible.builtin.uri:
+    url: "{{ health_check_url }}"
+    method: GET
+    status_code: 200
+    return_content: yes
+  register: actuator_health_result
+  until: actuator_health_result.status == 200
+  retries: "{{ monitoring_retries }}"
+  delay: "{{ monitoring_delay }}"
+  changed_when: false
+  when: not ansible_check_mode
+  tags:
+    - monitoring
+    - health
+    - verify
+
+- name: Probe Frontend Web Accessibility
+  ansible.builtin.uri:
+    url: "{{ frontend_check_url }}"
+    method: GET
+    status_code: 200
+  register: frontend_web_result
+  until: frontend_web_result.status == 200
+  retries: 10
+  delay: 2
+  changed_when: false
+  when: not ansible_check_mode
+  tags:
+    - monitoring
+    - health
+    - verify
+
+- name: Validate Backend Overall Health Status
+  ansible.builtin.assert:
+    that:
+      - actuator_health_result.status == 200
+      - actuator_health_result.json.status == 'UP'
+    fail_msg: "Spring Boot Actuator reported UNHEALTHY status: {{ actuator_health_result.json | default('No JSON response') }}"
+    success_msg: "Spring Boot Backend reported overall status: UP"
+  when: not ansible_check_mode
+  tags:
+    - monitoring
+    - health
+    - verify
+
+- name: Validate Database Connectivity Component
+  ansible.builtin.assert:
+    that:
+      - actuator_health_result.json.components.db.status is defined
+      - actuator_health_result.json.components.db.status == 'UP'
+    fail_msg: "Database connectivity probe reported failure! Actuator db status: {{ actuator_health_result.json.components.db | default('Missing') }}"
+    success_msg: "Database connectivity verified: UP (Connected to MySQL: {{ actuator_health_result.json.components.db.details.database | default('MySQL') }})"
+  when: not ansible_check_mode
+  tags:
+    - monitoring
+    - health
+    - verify
+
+- name: Inspect Container Stack Status via Docker Compose
+  ansible.builtin.command:
+    cmd: docker compose ps
+    chdir: "{{ app_dir }}"
+  register: compose_ps_summary
+  changed_when: false
+  when: not ansible_check_mode
+  tags:
+    - monitoring
+    - health
+    - verify
+
+- name: Display Comprehensive Health & Reliability Report
+  ansible.builtin.debug:
+    msg:
+      - "=========================================================="
+      - " GRID AUTOMATION HEALTH VERIFICATION REPORT"
+      - "=========================================================="
+      - "Overall System Status: {{ actuator_health_result.json.status }}"
+      - "Backend Actuator: {{ health_check_url }} (HTTP {{ actuator_health_result.status }})"
+      - "Frontend SPA: {{ frontend_check_url }} (HTTP {{ frontend_web_result.status }})"
+      - "Database Status: {{ actuator_health_result.json.components.db.status }} ({{ actuator_health_result.json.components.db.details.database | default('MySQL') }})"
+      - "Disk Space Status: {{ actuator_health_result.json.components.diskSpace.status | default('N/A') }}"
+      - "Active Containers:"
+      - "{{ compose_ps_summary.stdout_lines }}"
+      - "=========================================================="
+  when: not ansible_check_mode
+  tags:
+    - monitoring
+    - health
+    - verify

@@ -1,0 +1,10 @@
+---
+# Handlers for role: application
+- name: Restart application stack
+  ansible.builtin.command:
+    cmd: docker compose up -d --remove-orphans
+    chdir: "{{ app_dir }}"
+  environment:
+    IMAGE_TAG: "{{ release_tag }}"
+    APP_HOST_PORT: "{{ host_port }}"
+  changed_when: true

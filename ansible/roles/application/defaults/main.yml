@@ -1,0 +1,14 @@
+---
+# Defaults for role: application
+app_name: hackathon-team-management-system
+app_dir: /workspace/hackathon-team-management-system
+deploy_user: deployuser
+deploy_group: deploygroup
+
+release_tag: "1.0.0"
+host_port: 8081
+server_port: 8080
+spring_profiles_active: "mysql,dev"
+
+backend_image: "hackathon-team-management-backend"
+frontend_image: "hackathon-team-management-frontend"

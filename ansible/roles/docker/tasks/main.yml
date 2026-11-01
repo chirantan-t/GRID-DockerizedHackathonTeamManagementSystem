@@ -1,19 +1,84 @@
 ---
 # ===================================================================
-# Role: docker - Docker Engine & Compose Validation
+# Role: docker — Docker Engine & Compose Verification
 # ===================================================================
+
+- name: Verify Docker CLI Availability
+  ansible.builtin.command:
+    cmd: docker --version
+  register: docker_cli_version_result
+  changed_when: false
+  tags:
+    - docker
+    - setup
+
+- name: Verify Docker Engine Connectivity
+  ansible.builtin.command:
+    cmd: docker info
+  register: docker_engine_info_result
+  changed_when: false
+  tags:
+    - docker
+    - setup
+
+- name: Verify Docker Compose Availability
+  ansible.builtin.command:
+    cmd: docker compose version
+  register: docker_compose_version_result
+  changed_when: false
+  failed_when: false
+  tags:
+    - docker
+    - setup
+
+- name: Fallback Check for Standalone docker-compose
+  ansible.builtin.command:
+    cmd: docker-compose --version
+  register: docker_compose_standalone_result
+  changed_when: false
+  when: docker_compose_version_result.rc != 0
+  tags:
+    - docker
+    - setup
+
+- name: Assert Docker and Docker Compose Readiness
+  ansible.builtin.assert:
+    that:
+      - docker_cli_version_result.rc == 0
+      - docker_engine_info_result.rc == 0
+      - (docker_compose_version_result.rc == 0 or (docker_compose_standalone_result is defined and docker_compose_standalone_result.rc == 0))
+    fail_msg: "Docker Engine or Docker Compose is not operational on the target system."
+    success_msg: "Docker Engine and Docker Compose are operational and ready for deployments."
+  tags:
+    - docker
+    - setup
+
+- name: Ensure docker Group Exists
+  ansible.builtin.group:
+    name: "{{ docker_group }}"
+    state: present
+  when: ansible_os_family != 'Windows'
+  ignore_errors: yes
+  tags:
+    - docker
+    - setup
 
 - name: Add Deployment User to docker Group
   ansible.builtin.user:
     name: "{{ deploy_user }}"
-    groups: docker
+    groups: "{{ docker_group }}"
     append: yes
+  when: ansible_os_family != 'Windows'
   ignore_errors: yes
+  tags:
+    - docker
+    - setup
 
-- name: Verify Docker Service is Enabled and Running
-  ansible.builtin.service:
-    name: docker
-    state: started
-    enabled: yes
-  when: ansible_service_mgr == 'systemd'
-  ignore_errors: yes
+- name: Display Verified Docker Versions
+  ansible.builtin.debug:
+    msg:
+      - "Docker CLI: {{ docker_cli_version_result.stdout }}"
+      - "Docker Compose: {{ (docker_compose_version_result.stdout | default('')) if docker_compose_version_result.rc == 0 else (docker_compose_standalone_result.stdout | default('N/A')) }}"
+  tags:
+    - docker
+    - setup

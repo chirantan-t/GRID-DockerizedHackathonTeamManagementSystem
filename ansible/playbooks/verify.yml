@@ -1,0 +1,12 @@
+---
+# ===================================================================
+# Playbook: verify.yml — Service Health & Connectivity Verification
+# ===================================================================
+
+- name: Verify GRID Health, Frontend Accessibility, and Database Connectivity
+  hosts: hackathon_servers
+  gather_facts: no
+
+  roles:
+    - role: monitoring
+      tags: [monitoring, health, verify]
