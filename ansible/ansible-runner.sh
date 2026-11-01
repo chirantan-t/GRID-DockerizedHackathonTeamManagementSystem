@@ -21,3 +21,4 @@ exec docker run --rm \
     -w /workspace/hackathon-team-management-system \
     -e ANSIBLE_CONFIG=/workspace/hackathon-team-management-system/ansible/ansible.cfg \
     grid-ansible:latest "$@"
+

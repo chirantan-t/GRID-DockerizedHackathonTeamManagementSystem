@@ -221,6 +221,8 @@ export const LoginPage = () => {
 
               {/* Use Email Button */}
               <button
+                id="btn-use-email"
+                type="button"
                 onClick={() => setEmailMode(true)}
                 className="grid-button"
                 style={{
@@ -241,20 +243,24 @@ export const LoginPage = () => {
               style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}
             >
               {errorMsg && (
-                <div style={{
-                  padding: '10px 14px',
-                  borderRadius: '12px',
-                  background: 'rgba(255, 75, 75, 0.1)',
-                  border: '1px solid rgba(255, 75, 75, 0.3)',
-                  color: '#ff6b6b',
-                  fontSize: '12.5px'
-                }}>
+                <div
+                  id="login-error"
+                  style={{
+                    padding: '10px 14px',
+                    borderRadius: '12px',
+                    background: 'rgba(255, 75, 75, 0.1)',
+                    border: '1px solid rgba(255, 75, 75, 0.3)',
+                    color: '#ff6b6b',
+                    fontSize: '12.5px'
+                  }}
+                >
                   {errorMsg}
                 </div>
               )}
               <div>
                 <label className="grid-label">Email Address</label>
                 <input
+                  id="username"
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -267,6 +273,7 @@ export const LoginPage = () => {
               <div>
                 <label className="grid-label">Password</label>
                 <input
+                  id="password"
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
@@ -278,6 +285,7 @@ export const LoginPage = () => {
 
               <button
                 type="submit"
+                id="login-button"
                 disabled={submitting}
                 className="grid-button grid-button-primary"
                 style={{
@@ -341,6 +349,8 @@ export const LoginPage = () => {
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px' }}>
               <button
+                id="btn-role-team"
+                type="button"
                 onClick={() => handleSignIn('TEAM')}
                 className="grid-button"
                 style={{ padding: '6px 8px', fontSize: '11px', borderRadius: '10px' }}
@@ -348,6 +358,8 @@ export const LoginPage = () => {
                 Team Lead
               </button>
               <button
+                id="btn-role-organizer"
+                type="button"
                 onClick={() => handleSignIn('ORGANIZER')}
                 className="grid-button"
                 style={{ padding: '6px 8px', fontSize: '11px', borderRadius: '10px' }}
@@ -355,6 +367,8 @@ export const LoginPage = () => {
                 Organizer
               </button>
               <button
+                id="btn-role-admin"
+                type="button"
                 onClick={() => handleSignIn('SUPER_ADMIN')}
                 className="grid-button"
                 style={{ padding: '6px 8px', fontSize: '11px', borderRadius: '10px' }}

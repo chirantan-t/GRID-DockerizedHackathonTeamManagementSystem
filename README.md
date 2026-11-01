@@ -1,225 +1,151 @@
-# Dockerized Hackathon Team Management System
+# GRID — The Command Center for Hackathons
 
-[![Java](https://img.shields.io/badge/Java-21%20LTS-orange.svg)](https://www.oracle.com/java/)
-[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.3.4-brightgreen.svg)](https://spring.io/projects/spring-boot)
-[![React](https://img.shields.io/badge/React-18.3-blue.svg)](https://react.dev/)
-[![Docker](https://img.shields.io/badge/Docker-Multi--stage-2496ed.svg)](https://www.docker.com/)
-[![Ansible](https://img.shields.io/badge/Ansible-Configuration-ee0000.svg)](https://www.ansible.com/)
-[![Selenium](https://img.shields.io/badge/Selenium-WebDriver%20JUnit5-43B02A.svg)](https://www.selenium.dev/)
-[![Release](https://img.shields.io/badge/Release-v1.0.0-indigo.svg)](https://github.com/)
-
-An end-to-end, production-grade DevOps engineering platform built for academic examination and real-world operations. The system enables hackathon organizers to administer team registrations, manage rosters, govern progress status workflows, analyze participation telemetry in real time, and deploy continuously through automated Jenkins pipelines, Docker containers, and Ansible playbooks.
-
----
-
-## 1. Features
-* **Role-Based Access Control (RBAC):** Dedicated authorization boundaries for `ADMIN`, `ORGANIZER`, and `TEAM_LEAD` powered by Spring Security 6 with BCrypt password hashing.
-* **Deterministic Status Workflow:** Enforced state machine preventing illegal status jumps:  
-  `DRAFT` &rarr; `REGISTERED` &rarr; `APPROVED` &rarr; `IN_PROGRESS` &rarr; `SUBMITTED` &rarr; `COMPLETED` (or `REJECTED`).
-* **Team & Roster Management:** Complete CRUD operations with unique team-code enforcement, track categorization, and dynamic atomic member counts.
-* **Backend Search & Dynamic Filtering:** Real-time multi-attribute query engine with pagination and sorting.
-* **Operational Dashboard:** Real-time Recharts visualizations showing status progress, track distributions, and recent audit activity.
-* **Automated DevOps Lifecycle:** Multi-stage Docker packaging, Docker Compose multi-container orchestration, Jenkins Declarative CI/CD pipeline, JUnit 5 & MockMvc test suites, automated Selenium WebDriver browser journeys, and idempotent Ansible provisioning.
+![GRID Status](https://img.shields.io/badge/System-Operational-00f58a?style=for-the-badge&logo=shield)
+![Java 21](https://img.shields.io/badge/Java-21_LTS-ED8B00?style=for-the-badge&logo=openjdk&logoColor=white)
+![Spring Boot](https://img.shields.io/badge/Spring_Boot-3.3.4-6DB33F?style=for-the-badge&logo=springboot&logoColor=white)
+![React](https://img.shields.io/badge/React-18.3.1-61DAFB?style=for-the-badge&logo=react&logoColor=black)
+![MySQL](https://img.shields.io/badge/MySQL-8.0-4479A1?style=for-the-badge&logo=mysql&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-29.9.2-2496ED?style=for-the-badge&logo=docker&logoColor=white)
+![Jenkins](https://img.shields.io/badge/Jenkins-2.568.2-D24939?style=for-the-badge&logo=jenkins&logoColor=white)
+![Ansible](https://img.shields.io/badge/Ansible-2.16.1-EE0000?style=for-the-badge&logo=ansible&logoColor=white)
 
 ---
 
-## 2. Technology Stack
+## 1. Project Overview
 
-| Layer | Technologies |
-| :--- | :--- |
-| **Backend REST API** | Java 21 LTS, Spring Boot 3.3.4, Spring Data JPA, Spring Security 6, Bean Validation, Maven, Spring Boot Actuator |
-| **Frontend SPA** | React 18, Vite 5, JavaScript (ES2022), React Router v6, Axios, Recharts, Lucide Icons, Vanilla CSS Design System |
-| **Database** | MySQL 8.x (production/docker), In-Memory H2 (automated test isolation) |
-| **Reverse Proxy & Web** | Nginx 1.27 Alpine |
-| **Test Automation** | JUnit 5, Mockito, MockMvc, Selenium WebDriver 4.x, Selenium Manager |
-| **CI / CD Pipeline** | Jenkins 2.x Declarative Pipeline (`Jenkinsfile`), GitHub Actions |
-| **Containerization** | Docker, Docker Compose, Multi-stage builds, Named persistent volumes |
-| **Configuration Mgmt** | Ansible 2.x (roles: common, docker, app, nginx) |
+**GRID** is a production-grade, enterprise multi-hackathon management platform engineered to orchestrate the entire hackathon lifecycle. It replaces fragmented spreadsheets, manual review chains, and ad-hoc communication channels with an integrated command center featuring automated team management, real-time submission tracking, multi-criterion judging rubrics, and automated infrastructure provisioning.
+
+### Core Value Propositions
+* **Multi-Hackathon Tenancy:** Seamlessly discover, participate in, and manage distinct concurrent hackathon editions.
+* **Persistent Teams & Multi-Registration:** Form cross-functional teams that persist across the platform with individual hackathon enrollments.
+* **Granular Role-Based Access Control (RBAC):** Dedicated workspaces for **TEAM** leads, **ORGANIZER** evaluators, and **SUPER_ADMIN** platform operators.
+* **Automated DevOps & Infrastructure as Code:** Fully automated CI/CD pipeline in Jenkins and idempotent containerized Ansible orchestration.
 
 ---
 
-## 3. System Architecture
+## 2. System Architecture
 
-```text
-Browser Client (Port 8081 / Dev 5173)
-       │
-       ▼
-Nginx Reverse Proxy / Static Web Server
-  ├── Serves React 18 SPA static assets
-  ├── Proxies /api/* requests to Spring Boot
-  └── Proxies /actuator/* health probes
-       │
-       ▼
-Spring Boot 3.x Backend (Internal Port 8080 / Local Port 8082)
-  ├── Spring Security Filter Chain (RBAC & Sessions)
-  ├── REST Controllers & Centralized Exception Handler
-  ├── Transactional Service Layer & Workflow State Machine
-  └── Spring Data JPA / Hibernate
-       │
-       ▼
-MySQL 8.x Database (Internal Port 3306)
-  └── Persistent Docker Named Volume: mysql_data
+```mermaid
+graph TD
+    User["Developer / Organizer / Admin Browser"] -->|Port 8081 / HTTP| Nginx["Nginx 1.27 Reverse Proxy & Static SPA Host"]
+    
+    subgraph "Docker Bridge Network (hackathon_network)"
+        Nginx -->|SPA Static Assets| Frontend["React 18 + Vite SPA (/usr/share/nginx/html)"]
+        Nginx -->|Proxy /api/* & /actuator/*| Backend["Spring Boot 3.3.4 / Java 21 LTS (Port 8080)"]
+        
+        Backend -->|Spring Data JPA / HikariCP| MySQL["MySQL 8.0 Database (Port 3306)"]
+        Backend -->|Schema Validation & Versioning| Flyway["Flyway Database Migrations (V1..V7)"]
+    end
+    
+    subgraph "Persistent Storage"
+        MySQL -->|Read / Write| Volume[("Named Volume: hackathon_mysql_data")]
+    end
+
+    subgraph "Automated DevOps Plane"
+        SCM["GitHub Repository (origin/main)"] -->|Polling / Webhook| Jenkins["Jenkins CI/CD Automation (Port 8080)"]
+        Jenkins -->|Stage 9: Automation| Ansible["Ansible 2.16+ Control Node (grid-ansible)"]
+        Ansible -->|Idempotent Roles & Health Probes| DockerEngine["Host Docker Daemon (/var/run/docker.sock)"]
+    end
 ```
 
 ---
 
-## 4. Port Allocations & Conflict Resolution
+## 3. Technology Stack
 
-To avoid port conflicts with services already running on the host system:
-* **Jenkins Controller:** Occupies port `8080`.
-* **Spring Boot (Local Dev):** Configured to run on port `8082` (avoids port 8080 conflict).
-* **React / Vite (Local Dev):** Port `5173`.
-* **Nginx Entry Point (Docker):** Host port `8081`.
-* **MySQL Database (Docker):** Internal port `3306` on Docker bridge network (unexposed to host for security).
-
----
-
-## 5. Prerequisites
-* **Java:** JDK 21 LTS (`java -version`)
-* **Maven:** Apache Maven 3.9+ (`mvn -version`)
-* **Node.js:** Node.js v20+ and npm 10+ (`node -v`, `npm -v`)
-* **Browser:** Google Chrome (for Selenium automated journeys)
-* **Docker & Docker Compose:** Docker Desktop or Docker Engine (for containerized deployment)
-* **Ansible:** Ansible 2.15+ (for configuration management on Linux / WSL2)
-
----
-
-## 6. Local Development Startup
-
-### 6.1 Backend Startup
-```bash
-cd backend
-mvn clean compile
-mvn spring-boot:run
-```
-* Backend starts on `http://localhost:8082`.
-* Actuator Health endpoint: `http://localhost:8082/actuator/health`.
-* H2 Database Console: `http://localhost:8082/h2-console` (JDBC URL: `jdbc:h2:mem:hackathondb`).
-
-### 6.2 Frontend Startup
-```bash
-cd frontend
-npm install
-npm run dev
-```
-* Frontend starts on `http://localhost:5173`.
-* Proxies `/api` and `/actuator` calls to `http://localhost:8082`.
-
-### 6.3 Demo Login Accounts
-| Username | Password | Role | Permissions |
+| Domain | Technology / Tool | Version | Description / Role |
 | :--- | :--- | :--- | :--- |
-| `admin` | `Admin@123` | `ADMIN` | Unrestricted CRUD, delete teams, modify all statuses |
-| `organizer` | `Organizer@123` | `ORGANIZER` | Create & update teams, approve/reject/in-progress workflows |
-| `teamlead` | `Lead@123` | `TEAM_LEAD` | View teams, update own team, submit for review, manage roster |
+| **Frontend** | React, Vite, Axios, Lucide React, Recharts | 18.3.1 / 5.4.21 | Single Page Application with dynamic Aurora Glass styling |
+| **Backend** | Java OpenJDK, Spring Boot, Spring Security 6 | 21 LTS / 3.3.4 | RESTful API microservice with BCrypt auth & Actuator telemetry |
+| **Data Layer** | MySQL 8.0, Hibernate ORM, Flyway | 8.0 / 6.5.3 / 10.x | Relational persistence with transactional schema evolution |
+| **Containerization** | Docker Engine, Docker Compose v2 | 29.9.2 / 2.33+ | Multi-stage image packaging & isolated network topology |
+| **CI/CD** | Jenkins Declarative Pipeline | 2.568.2 | 11-stage automated pipeline with test gating & health checks |
+| **Configuration** | Ansible Core, Community Docker Collection | 2.16.1 | Idempotent multi-role provisioning (`common`, `docker`, `db`, `app`, `mon`) |
+| **Testing** | JUnit 5, Mockito, MockMvc, Selenium WebDriver | 5.10 / 4.25 | Unit, integration, mock, and headless browser E2E workflows |
 
 ---
 
-## 7. Docker Multi-Container Startup
+## 4. Quick Start & Execution Commands
+
+### Prerequisites
+* **Git** 2.40+
+* **Docker Desktop** (Engine 24+) & Docker Compose v2
+* **Java 21 JDK** & **Maven 3.9+** (for local development)
+* **Node.js 20+** & **npm 10+** (for frontend development)
+
+### One-Command Docker Compose Deployment
+```bash
+# Clone the repository
+git clone https://github.com/chirantan-t/hackrlist.git
+cd hackrlist/hackathon-team-management-system
+
+# Launch the complete multi-container stack
+docker compose up -d --build
+```
+* **Frontend Web Application:** [http://localhost:8081/](http://localhost:8081/)
+* **Spring Boot Actuator Health Probe:** [http://localhost:8081/actuator/health](http://localhost:8081/actuator/health)
+* **Backend API Base:** [http://localhost:8081/api/](http://localhost:8081/api/)
+
+---
+
+## 5. Automated Ansible Provisioning
+
+GRID includes a containerized Ansible control node requiring zero Linux setup on Windows:
 
 ```bash
-# 1. Review environment configuration template
-cp .env.example .env
+# Windows Host Execution
+.\ansible-runner.bat
 
-# 2. Build multi-stage images and start all containers
-docker compose up --build -d
-
-# 3. Verify running containers and health status
-docker compose ps
-
-# 4. View container logs
-docker compose logs -f
-
-# 5. Stop containers
-docker compose down
+# Linux / WSL / POSIX Execution
+chmod +x ansible/ansible-runner.sh
+./ansible/ansible-runner.sh
 ```
-Access the application at: `http://localhost:8081`.
+
+### Ansible Roles Executed:
+1. `common`: Validates OS family, system packages, scaffolding, and POSIX permissions.
+2. `docker`: Verifies Docker CLI, daemon responsiveness, and Compose plugin.
+3. `database`: Volume preservation safeguard for `hackathon_mysql_data` and MySQL socket probe.
+4. `application`: Evaluates Jinja2 templates (`.env.j2`, `default.conf.j2`) and deploys containers.
+5. `monitoring`: Validates composite health status (`status == "UP"`) and React SPA routing.
 
 ---
 
-## 8. Automated Testing
+## 6. Jenkins CI/CD Pipeline
 
-### 8.1 Backend Unit & Integration Tests (JUnit 5 + MockMvc)
+The 11-stage declarative pipeline (`Jenkinsfile`) automates quality control from commit to live verification:
+
+1. **Checkout SCM:** Pulls verified commit from `https://github.com/chirantan-t/hackrlist.git`.
+2. **Environment Verification:** Validates Java 21, Maven 3.9, Node 22, npm 10, Docker 29.
+3. **Backend Build:** Compiles Spring Boot JAR (`mvn clean package -DskipTests`).
+4. **Backend Unit Testing:** Executes 44 JUnit 5 & Mockito test cases with XML reporting.
+5. **Frontend Build:** Bundles React SPA using Vite production minification.
+6. **Frontend Testing:** Verifies compilation bundle integrity (`dist/index.html`).
+7. **Docker Packaging:** Builds tagged images (`backend:1.0.0-${BUILD_NUMBER}`, `frontend:1.0.0-${BUILD_NUMBER}`).
+8. **Docker Validation:** Asserts local image registry tags and entrypoints.
+9. **Ansible Provisioning:** Executes containerized Ansible site orchestrator (`site.yml`).
+10. **Health Verification:** Probes Actuator and DB component readiness with exponential backoff.
+11. **Post-Build Actions:** Archives JUnit surefire test reports and notifies build status.
+
+---
+
+## 7. Testing Suite & Verification
+
 ```bash
-cd backend
-mvn clean test
-```
-* All 13 tests execute against an isolated in-memory H2 database.
-* Reports generated in `backend/target/surefire-reports/`.
+# Run Backend Unit & Integration Tests (44 Tests)
+mvn -f backend/pom.xml test
 
-### 8.2 Selenium WebDriver Browser Tests
-```bash
-cd selenium-tests
-mvn clean test
-```
-* Automatically drives headless or headed Google Chrome.
-* Covers all 5 critical user journeys:
-  1. Login validation (valid vs invalid credentials).
-  2. Team creation and listing verification.
-  3. Search and dynamic filter verification.
-  4. Team metadata update.
-  5. Workflow status transition and illegal transition rejection.
-* Captures automated PNG screenshots on failure under `selenium-tests/screenshots/`.
+# Run Frontend Production Build
+npm --prefix frontend run build
 
----
-
-## 9. Jenkins CI/CD Pipeline
-
-The included `Jenkinsfile` defines a production Declarative Pipeline:
-1. **Checkout:** Clones repository source.
-2. **Environment Validation:** Verifies Java 21, Maven, Node.js, and Docker availability.
-3. **Backend Build & Test:** Compiles code and executes JUnit 5 tests.
-4. **Publish Test Reports:** Publishes JUnit XML test results.
-5. **Frontend Build:** Runs `npm ci` and `npm run build`.
-6. **Selenium Testing:** Runs automated browser tests; failures block deployment.
-7. **Docker Build & Tag:** Builds `hackathon-team-management-system:1.0.0`.
-8. **Deployment & Health Probe:** Launches containers and probes `/actuator/health`.
-9. **Automated Rollback:** Automatically redeploys previous stable tag if health check fails.
-
----
-
-## 10. Ansible Configuration Management
-
-Ansible playbooks are located in `ansible/`:
-```bash
-# 1. Test playbook syntax
-ansible-playbook -i ansible/inventory.ini ansible/playbook.yml --syntax-check
-
-# 2. Execute idempotent configuration on target host
-ansible-playbook -i ansible/inventory.ini ansible/playbook.yml
+# Run Headless Selenium Browser Journeys (7 Tests)
+mvn -f selenium-tests/pom.xml test -Dheadless=true
 ```
 
 ---
 
-## 11. REST API Specification Summary
+## 8. Demo Credentials & Accounts
 
-| Method | Endpoint | Description | Role Required |
+| Role | Account Email | Password | Access Scope |
 | :--- | :--- | :--- | :--- |
-| `POST` | `/api/auth/login` | Authenticate and create session | Public |
-| `POST` | `/api/auth/logout` | Terminate session | Public |
-| `GET` | `/api/auth/me` | Fetch active user profile | Authenticated |
-| `GET` | `/api/teams` | Paginated team listing | Authenticated |
-| `GET` | `/api/teams/search` | Search teams by keyword | Authenticated |
-| `GET` | `/api/teams/{id}` | Team profile and roster | Authenticated |
-| `POST` | `/api/teams` | Register new hackathon team | `ADMIN`, `ORGANIZER`, `TEAM_LEAD` |
-| `PUT` | `/api/teams/{id}` | Update team metadata | `ADMIN`, `ORGANIZER`, `TEAM_LEAD` |
-| `DELETE` | `/api/teams/{id}` | Permanently delete team | `ADMIN` only |
-| `PATCH` | `/api/teams/{id}/status` | Enforce status transition | `ADMIN`, `ORGANIZER`, `TEAM_LEAD` |
-| `GET` | `/api/teams/{id}/members` | Fetch team member roster | Authenticated |
-| `POST` | `/api/teams/{id}/members` | Enroll team member | `ADMIN`, `ORGANIZER`, `TEAM_LEAD` |
-| `DELETE` | `/api/teams/{id}/members/{mId}` | Remove team member | `ADMIN`, `ORGANIZER`, `TEAM_LEAD` |
-| `GET` | `/api/dashboard/summary` | Aggregate dashboard KPIs | Authenticated |
-| `GET` | `/actuator/health` | System health probe | Public |
-
----
-
-## 12. Troubleshooting
-* **Port 8080 already in use:** Local Jenkins is occupying port 8080. The backend is configured to use port `8082` by default. You can override it with `export SERVER_PORT=8085`.
-* **Database connectivity:** In standalone local mode, the backend automatically uses in-memory H2. In Docker, it connects to MySQL container on internal network `db:3306`.
-* **Selenium Browser Driver:** Selenium 4 uses built-in Selenium Manager to manage Chrome driver binaries automatically. Ensure Google Chrome is installed on the machine.
-
----
-
-## 13. Project Limitations & Future Work
-* **Single-Cluster Deployment:** Architected for single-host or multi-container Compose environments rather than multi-region Kubernetes clusters.
-* **Email Verification:** Roster emails are validated via regex format rather than live SMTP token exchange.
-* **File Uploads:** Project attachments (presentation decks, GitHub repo links) are currently stored as URL text rather than binary S3/Blob storage.
+| **Super Admin** | `superadmin@grid.dev` | `Grid@2026` | Platform-wide oversight, user administration, system health |
+| **Organizer** | `organizer@grid.dev` | `Grid@2026` | Hackathon creation, team approval, submissions, rubric scoring |
+| **Team Lead** | `chirantan@grid.dev` | `Grid@2026` | Team management, hackathon registration, project submissions |

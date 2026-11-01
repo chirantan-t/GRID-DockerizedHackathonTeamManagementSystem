@@ -5,3 +5,4 @@
     name: docker
     state: restarted
   when: ansible_service_mgr == 'systemd'
+

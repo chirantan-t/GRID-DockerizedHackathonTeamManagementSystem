@@ -15,7 +15,7 @@ public class CaptureRoleDashboardsTest extends BaseSeleniumTest {
     private void saveScreenshot(String filename) {
         try {
             File scrFile = ((TakesScreenshot) driver).getScreenshotAs(OutputType.FILE);
-            Path destPath = Paths.get("D:", "project ss", filename);
+            Path destPath = Paths.get("target", "screenshots", filename);
             Files.createDirectories(destPath.getParent());
             Files.copy(scrFile.toPath(), destPath, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
             System.out.println(">>> Saved: " + destPath.toAbsolutePath());
@@ -27,28 +27,22 @@ public class CaptureRoleDashboardsTest extends BaseSeleniumTest {
     @Test
     @DisplayName("Capture Role Dashboards")
     public void captureAllRoleDashboards() throws InterruptedException {
-        // 1. Admin Dashboard
-        loginAs("admin", "Admin@123");
-        waitForVisibility(By.id("dashboard-page"));
+        // 1. Team Lead Dashboard
+        loginWithRole("TEAM");
+        wait.until(ExpectedConditions.urlContains("/team/dashboard"));
         Thread.sleep(800);
-        saveScreenshot("demo_role_admin_dashboard.png");
-
-        // Logout
-        driver.get(baseUrl + "/login");
+        saveScreenshot("demo_role_team_dashboard.png");
 
         // 2. Organizer Dashboard
-        loginAs("organizer", "Organizer@123");
-        waitForVisibility(By.id("dashboard-page"));
+        loginWithRole("ORGANIZER");
+        wait.until(ExpectedConditions.urlContains("/organizer/dashboard"));
         Thread.sleep(800);
         saveScreenshot("demo_role_organizer_dashboard.png");
 
-        // Logout
-        driver.get(baseUrl + "/login");
-
-        // 3. Team Lead Dashboard
-        loginAs("teamlead", "Lead@123");
-        waitForVisibility(By.id("dashboard-page"));
+        // 3. Super Admin Dashboard
+        loginWithRole("SUPER_ADMIN");
+        wait.until(ExpectedConditions.urlContains("/admin/dashboard"));
         Thread.sleep(800);
-        saveScreenshot("demo_role_teamlead_dashboard.png");
+        saveScreenshot("demo_role_admin_dashboard.png");
     }
 }

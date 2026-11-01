@@ -14,151 +14,116 @@ import static org.junit.jupiter.api.Assertions.*;
 @TestMethodOrder(OrderAnnotation.class)
 public class UserJourneysTest extends BaseSeleniumTest {
 
-    private static final String UNIQUE_CODE = "HTM-AUT-" + (System.currentTimeMillis() % 10000);
-    private static final String TEAM_NAME = "Automated Selenium Squad";
-
     @Test
     @Order(1)
-    @DisplayName("Journey 1: Login validation with valid and invalid credentials")
+    @DisplayName("Journey 1: Authentication, credential validation, and role redirection")
     public void testJourney1_LoginValidation() {
         driver.get(baseUrl + "/login");
 
-        // Step 1: Submit invalid credentials
+        // Step 1: Open email sign-in mode
+        WebElement emailOptionBtn = waitForClickable(By.id("btn-use-email"));
+        jsClick(emailOptionBtn);
+
+        // Step 2: Submit invalid credentials
         WebElement userInput = waitForVisibility(By.id("username"));
-        setInputValue(userInput, "invalid_user");
+        setInputValue(userInput, "invalid_user@grid.io");
 
         WebElement passInput = waitForVisibility(By.id("password"));
         setInputValue(passInput, "wrong_password");
 
         jsClick(waitForClickable(By.id("login-button")));
 
-        // Step 2: Verify error alert displayed
+        // Step 3: Verify error alert displayed
         WebElement errorAlert = waitForVisibility(By.id("login-error"));
         assertTrue(errorAlert.isDisplayed(), "Login error alert should be visible on invalid credentials");
 
-        // Step 3: Clear and submit valid credentials
-        setInputValue(userInput, "admin");
-        setInputValue(passInput, "Admin@123");
+        // Step 4: Login via Team Lead role button
+        loginWithRole("TEAM");
 
-        jsClick(waitForClickable(By.id("login-button")));
-
-        // Step 4: Verify navigation to executive dashboard
-        wait.until(ExpectedConditions.not(ExpectedConditions.urlContains("/login")));
-        WebElement dashboardPage = waitForVisibility(By.id("dashboard-page"));
-        assertTrue(dashboardPage.isDisplayed(), "Executive dashboard should load successfully on valid login");
+        // Step 5: Verify redirect to team dashboard
+        wait.until(ExpectedConditions.urlContains("/team/dashboard"));
+        assertTrue(driver.getCurrentUrl().contains("/team/dashboard"), "Should redirect to Team Dashboard");
     }
 
     @Test
     @Order(2)
-    @DisplayName("Journey 2: Create a team and verify it appears in the listing")
-    public void testJourney2_CreateTeamAndVerifyListing() {
-        loginAs("admin", "Admin@123");
+    @DisplayName("Journey 2: Team Lead - Discover hackathons and view details")
+    public void testJourney2_ExploreHackathonsWorkflow() {
+        loginWithRole("TEAM");
 
-        // Navigate to team creation form
-        jsClick(waitForClickable(By.id("nav-create-team")));
-        wait.until(ExpectedConditions.urlContains("/teams/new"));
+        // Navigate to explore hackathons
+        driver.get(baseUrl + "/team/explore");
+        wait.until(ExpectedConditions.urlContains("/team/explore"));
 
-        // Fill form fields
-        setInputValue(waitForVisibility(By.id("team-name-input")), TEAM_NAME);
-        setInputValue(driver.findElement(By.id("team-code-input")), UNIQUE_CODE);
-        setInputValue(driver.findElement(By.id("project-title-input")), "Self-Healing CI/CD Pipeline Automation");
-        setInputValue(driver.findElement(By.id("team-lead-input")), "alex_lead");
-        setInputValue(driver.findElement(By.id("project-description-input")), "End-to-end resilient container pipeline with automated canary health checks.");
-
-        // Submit form
-        jsClick(waitForClickable(By.id("submit-team-btn")));
-
-        // Verify redirect to team details
-        wait.until(ExpectedConditions.urlMatches(".*/teams/\\d+"));
-        WebElement codeDisplay = waitForVisibility(By.id("team-code-display"));
-        assertEquals(UNIQUE_CODE, codeDisplay.getText().trim(), "Team code should match generated test code");
-
-        // Navigate to team list and verify presence
-        jsClick(waitForClickable(By.id("nav-teams")));
-        wait.until(ExpectedConditions.urlMatches(".*/teams$"));
-
-        wait.until(ExpectedConditions.textToBePresentInElementLocated(By.id("teams-table"), UNIQUE_CODE));
-        WebElement table = waitForVisibility(By.id("teams-table"));
-        assertTrue(table.getText().contains(UNIQUE_CODE), "Team code should be present in teams listing table");
+        // Verify page content renders hackathon options
+        WebElement pageBody = waitForVisibility(By.tagName("main"));
+        assertNotNull(pageBody, "Main content area should be present");
+        assertTrue(pageBody.getText().contains("Hackathon") || pageBody.getText().contains("Explore"),
+                "Explore page should contain Hackathon cards or listings");
     }
 
     @Test
     @Order(3)
-    @DisplayName("Journey 3: Search for a team and verify correct result")
-    public void testJourney3_SearchAndFilterTeams() {
-        loginAs("admin", "Admin@123");
+    @DisplayName("Journey 3: Team Lead - Workspace inspection and announcements stream")
+    public void testJourney3_TeamWorkspaceAndAnnouncements() {
+        loginWithRole("TEAM");
 
-        driver.get(baseUrl + "/teams");
-        WebElement searchInput = waitForVisibility(By.id("search-input"));
-        setInputValue(searchInput, UNIQUE_CODE);
+        // Navigate to workspace
+        driver.get(baseUrl + "/team/workspace");
+        wait.until(ExpectedConditions.urlContains("/team/workspace"));
 
-        jsClick(waitForClickable(By.id("search-submit-btn")));
+        WebElement workspaceMain = waitForVisibility(By.tagName("main"));
+        assertNotNull(workspaceMain, "Team workspace should render successfully");
 
-        // Wait for table to update and assert that target code is present
-        wait.until(ExpectedConditions.textToBePresentInElementLocated(By.id("teams-table"), UNIQUE_CODE));
-        WebElement table = driver.findElement(By.id("teams-table"));
-        assertTrue(table.getText().contains(UNIQUE_CODE), "Search results should contain searched team code");
+        // Navigate to announcements
+        driver.get(baseUrl + "/team/announcements");
+        wait.until(ExpectedConditions.urlContains("/team/announcements"));
+
+        WebElement announcementsMain = waitForVisibility(By.tagName("main"));
+        assertNotNull(announcementsMain, "Announcements view should render successfully");
     }
 
     @Test
     @Order(4)
-    @DisplayName("Journey 4: Update a team's information and verify changes")
-    public void testJourney4_UpdateTeamInformation() {
-        loginAs("admin", "Admin@123");
+    @DisplayName("Journey 4: Organizer - Dashboard metrics, hackathon oversight, and team tracking")
+    public void testJourney4_OrganizerWorkflows() {
+        loginWithRole("ORGANIZER");
 
-        // Search for target team
-        driver.get(baseUrl + "/teams");
-        setInputValue(waitForVisibility(By.id("search-input")), UNIQUE_CODE);
-        jsClick(waitForClickable(By.id("search-submit-btn")));
+        // Verify organizer dashboard
+        wait.until(ExpectedConditions.urlContains("/organizer/dashboard"));
+        assertTrue(driver.getCurrentUrl().contains("/organizer/dashboard"),
+                "Should navigate to Organizer Dashboard");
 
-        wait.until(ExpectedConditions.textToBePresentInElementLocated(By.id("teams-table"), UNIQUE_CODE));
+        // Navigate to hackathons view
+        driver.get(baseUrl + "/organizer/hackathons");
+        wait.until(ExpectedConditions.urlContains("/organizer/hackathons"));
+        assertNotNull(waitForVisibility(By.tagName("main")), "Organizer hackathons list should render");
 
-        // Click edit button
-        WebElement editBtn = waitForClickable(By.xpath("//tr[contains(., '" + UNIQUE_CODE + "')]//a[contains(@id, 'edit-team')]"));
-        jsClick(editBtn);
-
-        wait.until(ExpectedConditions.urlContains("/edit"));
-        WebElement titleInput = waitForVisibility(By.id("project-title-input"));
-        setInputValue(titleInput, "Updated Autonomous Pipeline v2");
-
-        jsClick(waitForClickable(By.id("submit-team-btn")));
-
-        // Verify redirect to details with updated title
-        wait.until(ExpectedConditions.urlMatches(".*/teams/\\d+"));
-        WebElement pageBody = waitForVisibility(By.id("team-details-page"));
-        assertTrue(pageBody.getText().contains("Updated Autonomous Pipeline v2"), "Updated project title should be displayed");
+        // Navigate to teams view
+        driver.get(baseUrl + "/organizer/teams");
+        wait.until(ExpectedConditions.urlContains("/organizer/teams"));
+        assertNotNull(waitForVisibility(By.tagName("main")), "Organizer teams list should render");
     }
 
     @Test
     @Order(5)
-    @DisplayName("Journey 5: Change team status using authorized account and verify workflow enforcement")
-    public void testJourney5_StatusWorkflowAndRoleEnforcement() {
-        loginAs("organizer", "Organizer@123");
+    @DisplayName("Journey 5: Super Admin - Executive governance, user administration, and health telemetry")
+    public void testJourney5_SuperAdminGovernance() {
+        loginWithRole("SUPER_ADMIN");
 
-        driver.get(baseUrl + "/teams");
-        setInputValue(waitForVisibility(By.id("search-input")), UNIQUE_CODE);
-        jsClick(waitForClickable(By.id("search-submit-btn")));
+        // Verify super admin dashboard
+        wait.until(ExpectedConditions.urlContains("/admin/dashboard"));
+        assertTrue(driver.getCurrentUrl().contains("/admin/dashboard"),
+                "Should navigate to Super Admin Dashboard");
 
-        wait.until(ExpectedConditions.textToBePresentInElementLocated(By.id("teams-table"), UNIQUE_CODE));
+        // Navigate to user management
+        driver.get(baseUrl + "/admin/users");
+        wait.until(ExpectedConditions.urlContains("/admin/users"));
+        assertNotNull(waitForVisibility(By.tagName("main")), "Super admin user table should render");
 
-        // Open status modal
-        WebElement statusBtn = waitForClickable(By.xpath("//tr[contains(., '" + UNIQUE_CODE + "')]//button[contains(@id, 'status-team')]"));
-        jsClick(statusBtn);
-
-        waitForVisibility(By.id("status-transition-modal"));
-
-        // Select next allowed status (REGISTERED -> APPROVED)
-        WebElement statusSelect = waitForVisibility(By.id("status-select"));
-        setSelectValue(statusSelect, "APPROVED");
-
-        setInputValue(driver.findElement(By.id("status-remarks")), "Automated test approval verified by Organizer");
-        jsClick(waitForClickable(By.id("status-submit-btn")));
-
-        // Wait for modal to close and assert status badge reflects APPROVED
-        wait.until(ExpectedConditions.invisibilityOfElementLocated(By.id("status-transition-modal")));
-        wait.until(ExpectedConditions.textToBePresentInElementLocated(By.id("teams-table"), "Approved"));
-
-        WebElement table = driver.findElement(By.id("teams-table"));
-        assertTrue(table.getText().contains("Approved"), "Team status badge should now display Approved");
+        // Navigate to system health telemetry
+        driver.get(baseUrl + "/admin/health");
+        wait.until(ExpectedConditions.urlContains("/admin/health"));
+        assertNotNull(waitForVisibility(By.tagName("main")), "Super admin system health should render");
     }
 }

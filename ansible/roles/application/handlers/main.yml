@@ -8,3 +8,4 @@
     IMAGE_TAG: "{{ release_tag }}"
     APP_HOST_PORT: "{{ host_port }}"
   changed_when: true
+

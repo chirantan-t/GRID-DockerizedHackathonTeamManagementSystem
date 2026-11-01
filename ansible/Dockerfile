@@ -32,3 +32,4 @@ ENV PYTHONUNBUFFERED=1
 
 ENTRYPOINT ["ansible-playbook"]
 CMD ["--version"]
+

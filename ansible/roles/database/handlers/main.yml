@@ -4,3 +4,4 @@
   ansible.builtin.command:
     cmd: docker restart {{ mysql_container_name }}
   changed_when: true
+

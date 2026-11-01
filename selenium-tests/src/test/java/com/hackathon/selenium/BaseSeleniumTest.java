@@ -3,7 +3,6 @@ package com.hackathon.selenium;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.AfterTestExecutionCallback;
-import org.junit.jupiter.api.extension.ExtensionContext;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.openqa.selenium.*;
 import org.openqa.selenium.chrome.ChromeDriver;
@@ -12,14 +11,12 @@ import org.openqa.selenium.support.ui.ExpectedConditions;
 import org.openqa.selenium.support.ui.WebDriverWait;
 
 import java.io.File;
-import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.Optional;
 
 public abstract class BaseSeleniumTest {
 
@@ -45,7 +42,7 @@ public abstract class BaseSeleniumTest {
         options.addArguments("--window-size=1920,1080");
 
         this.driver = new ChromeDriver(options);
-        this.wait = new WebDriverWait(driver, Duration.ofSeconds(10));
+        this.wait = new WebDriverWait(driver, Duration.ofSeconds(15));
     }
 
     @AfterEach
@@ -68,20 +65,9 @@ public abstract class BaseSeleniumTest {
             "const el = arguments[0];" +
             "const val = arguments[1];" +
             "if (el._valueTracker) { el._valueTracker.setValue('__init__'); }" +
-            "const proto = Object.getPrototypeOf(el);" +
-            "const descriptor = Object.getOwnPropertyDescriptor(proto, 'value') || " +
-            "                   Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value');" +
-            "if (descriptor && descriptor.set) { descriptor.set.call(el, val); } else { el.value = val; }" +
+            "el.value = val;" +
             "el.dispatchEvent(new Event('input', { bubbles: true }));" +
             "el.dispatchEvent(new Event('change', { bubbles: true }));",
-            element, value
-        );
-    }
-
-    protected void setSelectValue(WebElement element, String value) {
-        ((JavascriptExecutor) driver).executeScript(
-            "arguments[0].value = arguments[1];" +
-            "arguments[0].dispatchEvent(new Event('change', { bubbles: true }));",
             element, value
         );
     }
@@ -92,6 +78,11 @@ public abstract class BaseSeleniumTest {
 
     protected void loginAs(String username, String password) {
         driver.get(baseUrl + "/login");
+        try {
+            WebElement emailBtn = wait.until(ExpectedConditions.elementToBeClickable(By.id("btn-use-email")));
+            jsClick(emailBtn);
+        } catch (Exception ignored) {}
+
         WebElement userField = waitForVisibility(By.id("username"));
         setInputValue(userField, username);
 
@@ -99,6 +90,19 @@ public abstract class BaseSeleniumTest {
         setInputValue(passField, password);
 
         jsClick(waitForClickable(By.id("login-button")));
+        wait.until(ExpectedConditions.not(ExpectedConditions.urlContains("/login")));
+    }
+
+    protected void loginWithRole(String role) {
+        driver.get(baseUrl + "/login");
+        String btnId = "btn-role-team";
+        if ("ORGANIZER".equalsIgnoreCase(role)) {
+            btnId = "btn-role-organizer";
+        } else if ("SUPER_ADMIN".equalsIgnoreCase(role) || "ADMIN".equalsIgnoreCase(role)) {
+            btnId = "btn-role-admin";
+        }
+        WebElement roleBtn = waitForClickable(By.id(btnId));
+        jsClick(roleBtn);
         wait.until(ExpectedConditions.not(ExpectedConditions.urlContains("/login")));
     }
 

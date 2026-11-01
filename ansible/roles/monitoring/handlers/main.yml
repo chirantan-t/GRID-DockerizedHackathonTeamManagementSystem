@@ -3,3 +3,4 @@
 - name: Log health alert
   ansible.builtin.debug:
     msg: "WARNING: One or more application probes reported degraded state!"
+
