@@ -342,7 +342,7 @@ export const ExploreHackathons = () => {
                     </div>
                   </div>
 
-                  {/* Completely Consistent Enter & Participate Button on ALL Cards */}
+                  {/* Completely Consistent Solid Neon Green Enter & Participate Button on ALL Cards */}
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
@@ -352,33 +352,29 @@ export const ExploreHackathons = () => {
                       width: '100%',
                       padding: '12px 24px',
                       borderRadius: '9999px',
-                      background: 'rgba(0, 245, 138, 0.08)',
-                      border: '1px solid rgba(0, 245, 138, 0.4)',
-                      color: '#ffffff',
+                      background: 'var(--grid-neon, #00f58a)',
+                      border: 'none',
+                      color: '#030c06',
                       fontSize: '13px',
-                      fontWeight: 600,
+                      fontWeight: 700,
                       cursor: 'pointer',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
                       gap: '8px',
-                      backdropFilter: 'blur(16px)',
-                      WebkitBackdropFilter: 'blur(16px)',
                       transition: 'all 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
                       outline: 'none',
-                      boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.06)'
+                      boxShadow: '0 0 20px rgba(0, 245, 138, 0.32)'
                     }}
                     onMouseEnter={(e) => {
-                      e.currentTarget.style.background = 'rgba(0, 245, 138, 0.2)';
-                      e.currentTarget.style.borderColor = 'rgba(0, 245, 138, 0.9)';
-                      e.currentTarget.style.boxShadow = '0 0 24px rgba(0, 245, 138, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.12)';
-                      e.currentTarget.style.transform = 'scale(1.015)';
+                      e.currentTarget.style.background = '#18ff9d';
+                      e.currentTarget.style.boxShadow = '0 0 32px rgba(0, 245, 138, 0.7)';
+                      e.currentTarget.style.transform = 'translateY(-2px) scale(1.02)';
                     }}
                     onMouseLeave={(e) => {
-                      e.currentTarget.style.background = 'rgba(0, 245, 138, 0.08)';
-                      e.currentTarget.style.borderColor = 'rgba(0, 245, 138, 0.4)';
-                      e.currentTarget.style.boxShadow = 'inset 0 1px 0 rgba(255, 255, 255, 0.06)';
-                      e.currentTarget.style.transform = 'scale(1)';
+                      e.currentTarget.style.background = 'var(--grid-neon, #00f58a)';
+                      e.currentTarget.style.boxShadow = '0 0 20px rgba(0, 245, 138, 0.32)';
+                      e.currentTarget.style.transform = 'translateY(0) scale(1)';
                     }}
                   >
                     <span>Enter & Participate</span>

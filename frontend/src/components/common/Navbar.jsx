@@ -1,6 +1,6 @@
 import React from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { Home, Search, Bell, User, Users, Award, Shield } from 'lucide-react';
+import { Home, Search, Bell, User } from 'lucide-react';
 
 export const Navbar = ({ title = 'Explore Hackathons' }) => {
   const { user, role, switchRole } = useAuth();
@@ -24,73 +24,8 @@ export const Navbar = ({ title = 'Explore Hackathons' }) => {
         </span>
       </div>
 
-      {/* Right Controls: Role Switcher + Search + Icons */}
+      {/* Right Controls: Search + Notification Bell + User Avatar */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-        {/* Subtle Integrated Role Switcher */}
-        <div style={{
-          display: 'flex',
-          gap: '4px',
-          background: 'rgba(255, 255, 255, 0.03)',
-          border: '1px solid rgba(255, 255, 255, 0.07)',
-          padding: '3px',
-          borderRadius: '9999px'
-        }}>
-          <button
-            onClick={() => switchRole('TEAM')}
-            style={{
-              background: role === 'TEAM' ? 'rgba(0, 255, 102, 0.16)' : 'transparent',
-              border: role === 'TEAM' ? '1px solid rgba(0, 255, 102, 0.45)' : '1px solid transparent',
-              color: role === 'TEAM' ? 'var(--grid-neon)' : 'var(--text-secondary)',
-              borderRadius: '9999px',
-              padding: '4px 10px',
-              fontSize: '11px',
-              fontWeight: 600,
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '4px'
-            }}
-          >
-            <Users size={11} /> Team
-          </button>
-          <button
-            onClick={() => switchRole('ORGANIZER')}
-            style={{
-              background: role === 'ORGANIZER' ? 'rgba(0, 255, 102, 0.16)' : 'transparent',
-              border: role === 'ORGANIZER' ? '1px solid rgba(0, 255, 102, 0.45)' : '1px solid transparent',
-              color: role === 'ORGANIZER' ? 'var(--grid-neon)' : 'var(--text-secondary)',
-              borderRadius: '9999px',
-              padding: '4px 10px',
-              fontSize: '11px',
-              fontWeight: 600,
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '4px'
-            }}
-          >
-            <Award size={11} /> Organizer
-          </button>
-          <button
-            onClick={() => switchRole('SUPER_ADMIN')}
-            style={{
-              background: role === 'SUPER_ADMIN' ? 'rgba(0, 255, 102, 0.16)' : 'transparent',
-              border: role === 'SUPER_ADMIN' ? '1px solid rgba(0, 255, 102, 0.45)' : '1px solid transparent',
-              color: role === 'SUPER_ADMIN' ? 'var(--grid-neon)' : 'var(--text-secondary)',
-              borderRadius: '9999px',
-              padding: '4px 10px',
-              fontSize: '11px',
-              fontWeight: 600,
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '4px'
-            }}
-          >
-            <Shield size={11} /> Admin
-          </button>
-        </div>
-
         {/* Sleek Apple Frosted Search Pill */}
         <div style={{
           display: 'flex',
