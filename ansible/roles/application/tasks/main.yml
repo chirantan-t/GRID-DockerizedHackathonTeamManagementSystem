@@ -7,7 +7,7 @@
   ansible.builtin.template:
     src: env.j2
     dest: "{{ app_dir }}/.env"
-    mode: '0644'
+    unsafe_writes: yes
   notify: Restart application stack
   tags:
     - app
@@ -18,9 +18,8 @@
   ansible.builtin.template:
     src: default.conf.j2
     dest: "{{ item }}"
-    mode: '0644'
+    unsafe_writes: yes
   loop:
-    - "{{ app_dir }}/deployment/nginx/default.conf"
     - "{{ app_dir }}/nginx/default.conf"
   ignore_errors: yes
   notify: Restart application stack
@@ -33,8 +32,10 @@
   ansible.builtin.copy:
     src: "{{ playbook_dir }}/../../docker-compose.yml"
     dest: "{{ app_dir }}/docker-compose.yml"
-    mode: '0644'
-  when: app_dir != (playbook_dir + '/../..')
+    unsafe_writes: yes
+  when:
+    - ansible_connection != 'local'
+    - app_dir != '/workspace/hackathon-team-management-system'
   notify: Restart application stack
   tags:
     - app
