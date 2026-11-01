@@ -2,14 +2,13 @@ package com.hackathon.management.entity;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
-import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 import java.time.LocalDateTime;
+import java.util.Objects;
 
 @Entity
 @Table(name = "team_members", uniqueConstraints = {
-    @UniqueConstraint(columnNames = {"team_id", "email"}, name = "uk_team_member_email")
+    @UniqueConstraint(columnNames = {"team_id", "user_id"}, name = "uk_team_member")
 })
 public class TeamMember {
 
@@ -22,32 +21,40 @@ public class TeamMember {
     @JsonIgnore
     private Team team;
 
-    @NotBlank(message = "Full name is required")
-    @Column(name = "full_name", nullable = false, length = 100)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = true)
+    private User user;
+
+    @NotBlank(message = "Member role is required")
+    @Column(name = "member_role", nullable = false, length = 50)
+    private String memberRole = "DEVELOPER";
+
+    @Column(name = "joined_at", nullable = false, updatable = false)
+    private LocalDateTime joinedAt;
+
+    // Transient fields for backward compatibility with legacy services
+    @Transient
     private String fullName;
 
-    @NotBlank(message = "Email is required")
-    @Email(message = "Valid email is required")
-    @Column(nullable = false, length = 100)
+    @Transient
     private String email;
 
-    @NotBlank(message = "College or institution is required")
-    @Column(nullable = false, length = 150)
+    @Transient
     private String college;
 
-    @NotBlank(message = "Department is required")
-    @Column(nullable = false, length = 100)
+    @Transient
     private String department;
 
-    @NotNull(message = "Team role is required")
-    @Enumerated(EnumType.STRING)
-    @Column(name = "team_role", nullable = false, length = 30)
+    @Transient
     private TeamRole teamRole;
 
-    @Column(name = "created_at", nullable = false, updatable = false)
-    private LocalDateTime createdAt;
-
     public TeamMember() {
+    }
+
+    public TeamMember(Team team, User user, String memberRole) {
+        this.team = team;
+        this.user = user;
+        this.memberRole = memberRole;
     }
 
     public TeamMember(String fullName, String email, String college, String department, TeamRole teamRole) {
@@ -56,11 +63,17 @@ public class TeamMember {
         this.college = college;
         this.department = department;
         this.teamRole = teamRole;
+        this.memberRole = teamRole != null ? teamRole.name() : "DEVELOPER";
     }
 
     @PrePersist
     protected void onCreate() {
-        this.createdAt = LocalDateTime.now();
+        if (this.joinedAt == null) {
+            this.joinedAt = LocalDateTime.now();
+        }
+        if (this.memberRole == null) {
+            this.memberRole = teamRole != null ? teamRole.name() : "DEVELOPER";
+        }
     }
 
     public Long getId() {
@@ -79,8 +92,35 @@ public class TeamMember {
         this.team = team;
     }
 
+    public User getUser() {
+        return user;
+    }
+
+    public void setUser(User user) {
+        this.user = user;
+    }
+
+    public String getMemberRole() {
+        return memberRole;
+    }
+
+    public void setMemberRole(String memberRole) {
+        this.memberRole = memberRole;
+    }
+
+    public LocalDateTime getJoinedAt() {
+        return joinedAt;
+    }
+
+    public void setJoinedAt(LocalDateTime joinedAt) {
+        this.joinedAt = joinedAt;
+    }
+
+    // Compatibility getters & setters
     public String getFullName() {
-        return fullName;
+        if (fullName != null) return fullName;
+        if (user != null) return user.getFullName();
+        return "";
     }
 
     public void setFullName(String fullName) {
@@ -88,7 +128,9 @@ public class TeamMember {
     }
 
     public String getEmail() {
-        return email;
+        if (email != null) return email;
+        if (user != null) return user.getEmail();
+        return "";
     }
 
     public void setEmail(String email) {
@@ -112,18 +154,34 @@ public class TeamMember {
     }
 
     public TeamRole getTeamRole() {
-        return teamRole;
+        if (teamRole != null) return teamRole;
+        try {
+            return TeamRole.valueOf(memberRole);
+        } catch (Exception e) {
+            return TeamRole.FULLSTACK;
+        }
     }
 
     public void setTeamRole(TeamRole teamRole) {
         this.teamRole = teamRole;
+        if (teamRole != null) {
+            this.memberRole = teamRole.name();
+        }
     }
 
     public LocalDateTime getCreatedAt() {
-        return createdAt;
+        return joinedAt != null ? joinedAt : LocalDateTime.now();
     }
 
-    public void setCreatedAt(LocalDateTime createdAt) {
-        this.createdAt = createdAt;
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof TeamMember that)) return false;
+        return id != null && id.equals(that.id);
+    }
+
+    @Override
+    public int hashCode() {
+        return getClass().hashCode();
     }
 }

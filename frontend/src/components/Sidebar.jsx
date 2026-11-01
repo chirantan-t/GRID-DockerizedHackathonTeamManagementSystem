@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { LayoutDashboard, Users, UserPlus, LogOut, Shield, Terminal } from 'lucide-react';
 
 export const Sidebar = () => {
-  const { user, logout, role } = useAuth();
+  const { user, logout, role, isLead } = useAuth();
   const navigate = useNavigate();
 
   const handleLogout = async () => {
@@ -30,18 +30,20 @@ export const Sidebar = () => {
           className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
         >
           <LayoutDashboard size={18} />
-          <span>Dashboard</span>
+          <span>{isLead ? 'My Team Status' : 'Dashboard'}</span>
         </NavLink>
 
-        <NavLink
-          to="/teams"
-          id="nav-teams"
-          end
-          className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
-        >
-          <Users size={18} />
-          <span>Hackathon Teams</span>
-        </NavLink>
+        {!isLead && (
+          <NavLink
+            to="/teams"
+            id="nav-teams"
+            end
+            className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
+          >
+            <Users size={18} />
+            <span>Hackathon Teams</span>
+          </NavLink>
+        )}
 
         <NavLink
           to="/teams/new"

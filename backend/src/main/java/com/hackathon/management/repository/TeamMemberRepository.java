@@ -10,8 +10,11 @@ import java.util.Optional;
 @Repository
 public interface TeamMemberRepository extends JpaRepository<TeamMember, Long> {
     List<TeamMember> findByTeamId(Long teamId);
-    Optional<TeamMember> findByTeamIdAndEmail(Long teamId, String email);
-    boolean existsByTeamIdAndEmail(Long teamId, String email);
+    List<TeamMember> findByUserId(Long userId);
+    Optional<TeamMember> findByTeamIdAndUserId(Long teamId, Long userId);
+    boolean existsByTeamIdAndUserId(Long teamId, Long userId);
+    Optional<TeamMember> findByTeamIdAndUserEmail(Long teamId, String email);
+    boolean existsByTeamIdAndUserEmail(Long teamId, String email);
     long countByTeamId(Long teamId);
     void deleteByTeamId(Long teamId);
 }

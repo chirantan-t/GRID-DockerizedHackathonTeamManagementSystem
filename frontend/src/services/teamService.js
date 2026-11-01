@@ -3,38 +3,54 @@ import apiClient from './apiClient';
 export const teamService = {
   getTeams: async (params = {}) => {
     const response = await apiClient.get('/api/teams', { params });
-    return response.data;
+    return response.data?.data || response.data || [];
   },
 
   searchTeams: async (query, params = {}) => {
     const response = await apiClient.get('/api/teams/search', {
       params: { q: query, ...params }
     });
-    return response.data;
+    return response.data?.data || response.data || [];
   },
 
   getTeamById: async (id) => {
     const response = await apiClient.get(`/api/teams/${id}`);
-    return response.data;
+    return response.data?.data || response.data;
+  },
+
+  getMyTeams: async () => {
+    const response = await apiClient.get('/api/teams/my-teams');
+    return response.data?.data || response.data || [];
+  },
+
+  getMyTeam: async () => {
+    const response = await apiClient.get('/api/teams/my-teams');
+    const teams = response.data?.data || response.data || [];
+    return teams.length > 0 ? teams[0] : null;
   },
 
   createTeam: async (teamData) => {
-    const response = await apiClient.post('/api/teams', teamData);
-    return response.data;
+    const payload = {
+      teamName: teamData.teamName || teamData.name,
+      teamCode: (teamData.teamCode || teamData.teamTag || 'TEAM-' + Date.now().toString().slice(-4)).toUpperCase(),
+      projectTitle: teamData.projectTitle || 'Autonomous System Project',
+      projectDescription: teamData.projectDescription || teamData.description || 'Hackathon engineering solution',
+      teamLead: teamData.teamLead || 'Team Lead',
+      track: teamData.track || 'AI_ML'
+    };
+    const response = await apiClient.post('/api/teams', payload);
+    return response.data?.data || response.data;
   },
 
   updateTeam: async (id, teamData) => {
     const response = await apiClient.put(`/api/teams/${id}`, teamData);
-    return response.data;
+    return response.data?.data || response.data;
   },
 
   deleteTeam: async (id) => {
     const response = await apiClient.delete(`/api/teams/${id}`);
-    return response.data;
-  },
-
-  updateStatus: async (id, status, remarks = '') => {
-    const response = await apiClient.patch(`/api/teams/${id}/status`, { status, remarks });
-    return response.data;
+    return response.data?.data || response.data;
   }
 };
+
+export default teamService;

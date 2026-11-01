@@ -1,62 +1,168 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import apiClient from '../services/apiClient';
+import authService from '../services/authService';
+import { MOCK_USERS } from '../data/mockData';
 
 const AuthContext = createContext(null);
 
+const SEED_CREDENTIALS = {
+  SUPER_ADMIN: { email: 'superadmin@grid.dev', password: 'Grid@2026' },
+  ORGANIZER: { email: 'organizer@grid.dev', password: 'Grid@2026' },
+  TEAM: { email: 'chirantan@grid.dev', password: 'Grid@2026' }
+};
+
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(() => {
-    const saved = localStorage.getItem('htm_user');
-    return saved ? JSON.parse(saved) : null;
+  const [role, setRole] = useState(() => {
+    return localStorage.getItem('grid_active_role') || 'TEAM';
   });
+
+  const [user, setUser] = useState(() => {
+    const savedRole = localStorage.getItem('grid_active_role') || 'TEAM';
+    return MOCK_USERS.find(u => u.role === savedRole) || MOCK_USERS[0];
+  });
+
+  const [isAuthenticated, setIsAuthenticated] = useState(() => {
+    return localStorage.getItem('grid_auth') !== 'false';
+  });
+
   const [loading, setLoading] = useState(true);
 
+  // Sync with backend session on mount
   useEffect(() => {
-    // Validate current session against backend
-    apiClient.get('/api/auth/me')
-      .then(res => {
-        setUser(res.data);
-        localStorage.setItem('htm_user', JSON.stringify(res.data));
-      })
-      .catch(() => {
-        // Not authenticated
-        setUser(null);
-        localStorage.removeItem('htm_user');
-      })
-      .finally(() => setLoading(false));
+    let isMounted = true;
+    const checkSession = async () => {
+      try {
+        const userData = await authService.getMe();
+        if (userData && isMounted) {
+          const userRole = userData.roles?.[0] || userData.role?.roleName || 'TEAM';
+          setUser({
+            id: userData.id,
+            name: userData.fullName,
+            email: userData.email,
+            role: userRole,
+            avatar: userData.fullName ? userData.fullName.split(' ').map(n => n[0]).join('') : 'U'
+          });
+          setRole(userRole);
+          setIsAuthenticated(true);
+          localStorage.setItem('grid_active_role', userRole);
+          localStorage.setItem('grid_auth', 'true');
+        }
+      } catch (err) {
+        // If not authenticated on server, auto-login with default active role for seamless developer UX
+        if (isMounted) {
+          const currentRole = localStorage.getItem('grid_active_role') || 'TEAM';
+          const creds = SEED_CREDENTIALS[currentRole] || SEED_CREDENTIALS.TEAM;
+          try {
+            await authService.login(creds.email, creds.password);
+            const verified = await authService.getMe();
+            const userRole = verified.roles?.[0] || currentRole;
+            setUser({
+              id: verified.id,
+              name: verified.fullName,
+              email: verified.email,
+              role: userRole,
+              avatar: verified.fullName ? verified.fullName.split(' ').map(n => n[0]).join('') : 'U'
+            });
+            setRole(userRole);
+            setIsAuthenticated(true);
+            localStorage.setItem('grid_active_role', userRole);
+            localStorage.setItem('grid_auth', 'true');
+          } catch (loginErr) {
+            console.warn('Auto-session login failed, using fallback user state:', loginErr);
+          }
+        }
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    };
+
+    checkSession();
+    return () => { isMounted = false; };
   }, []);
 
-  const login = async (username, password) => {
-    const res = await apiClient.post('/api/auth/login', { username, password });
-    const userData = res.data;
-    setUser(userData);
-    setLoading(false);
-    localStorage.setItem('htm_user', JSON.stringify(userData));
-    return userData;
+  const loginWithCredentials = async (email, password) => {
+    try {
+      const authResp = await authService.login(email, password);
+      const userData = await authService.getMe();
+      const userRole = userData.roles?.[0] || authResp.role?.roleName || 'TEAM';
+      
+      setUser({
+        id: userData.id,
+        name: userData.fullName,
+        email: userData.email,
+        role: userRole,
+        avatar: userData.fullName ? userData.fullName.split(' ').map(n => n[0]).join('') : 'U'
+      });
+      setRole(userRole);
+      setIsAuthenticated(true);
+      localStorage.setItem('grid_active_role', userRole);
+      localStorage.setItem('grid_auth', 'true');
+      return { success: true, role: userRole };
+    } catch (err) {
+      console.error('Login error:', err);
+      throw err;
+    }
+  };
+
+  const switchRole = async (newRole) => {
+    const creds = SEED_CREDENTIALS[newRole] || SEED_CREDENTIALS.TEAM;
+    try {
+      await authService.login(creds.email, creds.password);
+      const verified = await authService.getMe();
+      const userRole = verified.roles?.[0] || newRole;
+      setUser({
+        id: verified.id,
+        name: verified.fullName,
+        email: verified.email,
+        role: userRole,
+        avatar: verified.fullName ? verified.fullName.split(' ').map(n => n[0]).join('') : 'U'
+      });
+      setRole(userRole);
+      setIsAuthenticated(true);
+      localStorage.setItem('grid_active_role', userRole);
+      localStorage.setItem('grid_auth', 'true');
+    } catch (err) {
+      console.warn('Switch role session failed, falling back to local state:', err);
+      setRole(newRole);
+      localStorage.setItem('grid_active_role', newRole);
+      const matchedUser = MOCK_USERS.find(u => u.role === newRole) || MOCK_USERS[0];
+      setUser(matchedUser);
+      setIsAuthenticated(true);
+      localStorage.setItem('grid_auth', 'true');
+    }
+  };
+
+  const login = (roleOrEmail = 'TEAM', password = null) => {
+    if (password) {
+      return loginWithCredentials(roleOrEmail, password);
+    }
+    // If called with a role name
+    return switchRole(roleOrEmail);
   };
 
   const logout = async () => {
     try {
-      await apiClient.post('/api/auth/logout');
-    } catch (e) {
-      // Ignore network errors on logout
+      await authService.logout();
+    } catch (err) {
+      console.warn('Logout API error:', err);
     } finally {
-      setUser(null);
-      setLoading(false);
-      localStorage.removeItem('htm_user');
+      setIsAuthenticated(false);
+      localStorage.setItem('grid_auth', 'false');
     }
   };
 
   return (
     <AuthContext.Provider value={{
       user,
-      role: user?.role,
-      isAuthenticated: !!user,
-      isAdmin: user?.role === 'ADMIN',
-      isOrganizer: user?.role === 'ORGANIZER',
-      isLead: user?.role === 'TEAM_LEAD',
+      role,
+      isAuthenticated,
+      isTeam: role === 'TEAM',
+      isOrganizer: role === 'ORGANIZER',
+      isSuperAdmin: role === 'SUPER_ADMIN',
+      loading,
+      switchRole,
       login,
-      logout,
-      loading
+      loginWithCredentials,
+      logout
     }}>
       {children}
     </AuthContext.Provider>
@@ -70,3 +176,5 @@ export const useAuth = () => {
   }
   return context;
 };
+
+export default AuthContext;

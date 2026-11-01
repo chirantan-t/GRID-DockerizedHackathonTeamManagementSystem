@@ -2,6 +2,8 @@ package com.hackathon.management.service;
 
 import com.hackathon.management.dto.AuthResponse;
 import com.hackathon.management.dto.LoginRequest;
+import com.hackathon.management.dto.RegisterRequest;
+import com.hackathon.management.dto.UserResponseDto;
 import com.hackathon.management.dto.UserSummaryDto;
 import com.hackathon.management.entity.User;
 import com.hackathon.management.exception.ResourceNotFoundException;
@@ -22,10 +24,18 @@ public class AuthService {
 
     private final AuthenticationManager authenticationManager;
     private final UserRepository userRepository;
+    private final UserService userService;
 
-    public AuthService(AuthenticationManager authenticationManager, UserRepository userRepository) {
+    public AuthService(AuthenticationManager authenticationManager,
+                       UserRepository userRepository,
+                       UserService userService) {
         this.authenticationManager = authenticationManager;
         this.userRepository = userRepository;
+        this.userService = userService;
+    }
+
+    public UserResponseDto register(RegisterRequest request) {
+        return userService.register(request);
     }
 
     public AuthResponse login(LoginRequest loginRequest, HttpServletRequest request, HttpServletResponse response) {
@@ -40,7 +50,8 @@ public class AuthService {
         HttpSession session = request.getSession(true);
         session.setAttribute(HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY, securityContext);
 
-        User user = userRepository.findByUsername(loginRequest.getUsername())
+        User user = userRepository.findByEmail(loginRequest.getUsername())
+                .or(() -> userRepository.findByUsername(loginRequest.getUsername()))
                 .orElseThrow(() -> new ResourceNotFoundException("User not found: " + loginRequest.getUsername()));
 
         return new AuthResponse(
@@ -67,9 +78,10 @@ public class AuthService {
             throw new ResourceNotFoundException("No active authenticated session found");
         }
 
-        String username = auth.getName();
-        User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + username));
+        String identifier = auth.getName();
+        User user = userRepository.findByEmail(identifier)
+                .or(() -> userRepository.findByUsername(identifier))
+                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + identifier));
 
         return new UserSummaryDto(
                 user.getId(),
@@ -78,5 +90,19 @@ public class AuthService {
                 user.getEmail(),
                 user.getRole()
         );
+    }
+
+    public UserResponseDto getMe() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated() || "anonymousUser".equals(auth.getPrincipal())) {
+            throw new ResourceNotFoundException("No active authenticated session found");
+        }
+
+        String identifier = auth.getName();
+        User user = userRepository.findByEmail(identifier)
+                .or(() -> userRepository.findByUsername(identifier))
+                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + identifier));
+
+        return userService.mapToDto(user);
     }
 }

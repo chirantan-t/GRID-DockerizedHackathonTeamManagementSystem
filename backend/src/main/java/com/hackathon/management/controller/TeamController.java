@@ -55,6 +55,24 @@ public class TeamController {
         return ResponseEntity.ok(teams);
     }
 
+    @GetMapping("/my-team")
+    public ResponseEntity<TeamDto> getMyTeam() {
+        TeamDto team = teamService.getMyTeam();
+        if (team == null) {
+            return ResponseEntity.noContent().build();
+        }
+        return ResponseEntity.ok(team);
+    }
+
+    @GetMapping("/my")
+    public ResponseEntity<TeamDto> getMyTeams() {
+        TeamDto team = teamService.getMyTeam();
+        if (team == null) {
+            return ResponseEntity.noContent().build();
+        }
+        return ResponseEntity.ok(team);
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<TeamDto> getTeamById(@PathVariable Long id) {
         TeamDto team = teamService.getTeamById(id);
@@ -62,28 +80,28 @@ public class TeamController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'ORGANIZER', 'TEAM_LEAD')")
+    @PreAuthorize("hasAnyRole('TEAM', 'TEAM_LEAD', 'ORGANIZER', 'ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<TeamDto> createTeam(@Valid @RequestBody TeamCreateRequest request) {
         TeamDto created = teamService.createTeam(request);
         return new ResponseEntity<>(created, HttpStatus.CREATED);
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'ORGANIZER', 'TEAM_LEAD')")
+    @PreAuthorize("hasAnyRole('TEAM', 'TEAM_LEAD', 'ORGANIZER', 'ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<TeamDto> updateTeam(@PathVariable Long id, @Valid @RequestBody TeamUpdateRequest request) {
         TeamDto updated = teamService.updateTeam(id, request);
         return ResponseEntity.ok(updated);
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<Void> deleteTeam(@PathVariable Long id) {
         teamService.deleteTeam(id);
         return ResponseEntity.noContent().build();
     }
 
     @PatchMapping("/{id}/status")
-    @PreAuthorize("hasAnyRole('ADMIN', 'ORGANIZER', 'TEAM_LEAD')")
+    @PreAuthorize("hasAnyRole('TEAM', 'TEAM_LEAD', 'ORGANIZER', 'ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<TeamDto> updateTeamStatus(@PathVariable Long id, @Valid @RequestBody StatusChangeRequest request) {
         TeamDto updated = teamService.updateTeamStatus(id, request);
         return ResponseEntity.ok(updated);

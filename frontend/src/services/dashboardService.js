@@ -1,18 +1,26 @@
 import apiClient from './apiClient';
 
 export const dashboardService = {
+  getTeamDashboard: async () => {
+    const response = await apiClient.get('/api/dashboard/team');
+    return response.data?.data || response.data;
+  },
+
+  getOrganizerDashboard: async () => {
+    const response = await apiClient.get('/api/dashboard/organizer');
+    return response.data?.data || response.data;
+  },
+
+  getAdminDashboard: async () => {
+    const response = await apiClient.get('/api/dashboard/admin');
+    return response.data?.data || response.data;
+  },
+
+  // Backward compatibility aliases
   getSummary: async () => {
-    const response = await apiClient.get('/api/dashboard/summary');
-    return response.data;
-  },
-
-  getStatusDistribution: async () => {
-    const response = await apiClient.get('/api/dashboard/status-distribution');
-    return response.data;
-  },
-
-  getTrackDistribution: async () => {
-    const response = await apiClient.get('/api/dashboard/track-distribution');
-    return response.data;
+    const response = await apiClient.get('/api/dashboard/admin');
+    return response.data?.data || response.data;
   }
 };
+
+export default dashboardService;

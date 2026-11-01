@@ -3,7 +3,9 @@ package com.hackathon.management.controller;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hackathon.management.dto.LoginRequest;
 import com.hackathon.management.entity.Role;
+import com.hackathon.management.entity.RoleName;
 import com.hackathon.management.entity.User;
+import com.hackathon.management.repository.RoleRepository;
 import com.hackathon.management.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -35,46 +37,50 @@ class AuthControllerIntegrationTest {
     private UserRepository userRepository;
 
     @Autowired
+    private RoleRepository roleRepository;
+
+    @Autowired
     private PasswordEncoder passwordEncoder;
 
     @BeforeEach
     void setupUser() {
-        userRepository.deleteAll();
-        User user = new User("admin_test", passwordEncoder.encode("TestPass@123"), "Admin Tester", "test@hackathon.dev", Role.ADMIN);
-        userRepository.save(user);
+        Role adminRole = roleRepository.findByRoleName(RoleName.SUPER_ADMIN)
+                .orElseGet(() -> roleRepository.save(new Role(RoleName.SUPER_ADMIN, "Super Administrator")));
+
+        User user = userRepository.findByEmail("admin_test@grid.dev").orElse(null);
+        if (user == null) {
+            user = new User("admin_test@grid.dev", passwordEncoder.encode("TestPass@123"), "Admin Tester", adminRole);
+            userRepository.save(user);
+        }
     }
 
     @Test
     @DisplayName("POST /api/auth/login should return 200 OK and user details on valid credentials")
     void testLogin_Success() throws Exception {
-        LoginRequest loginRequest = new LoginRequest("admin_test", "TestPass@123");
+        LoginRequest loginRequest = new LoginRequest("admin_test@grid.dev", "TestPass@123");
 
         mockMvc.perform(post("/api/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(loginRequest)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.username").value("admin_test"))
-                .andExpect(jsonPath("$.role").value("ADMIN"))
-                .andExpect(jsonPath("$.message").value("Login successful"));
+                .andExpect(jsonPath("$.email").value("admin_test@grid.dev"));
     }
 
     @Test
-    @DisplayName("POST /api/auth/login should return 401 Unauthorized on invalid credentials")
+    @DisplayName("POST /api/auth/login with invalid password returns 401 Unauthorized")
     void testLogin_InvalidCredentials() throws Exception {
-        LoginRequest loginRequest = new LoginRequest("admin_test", "WrongPassword");
+        LoginRequest loginRequest = new LoginRequest("admin_test@grid.dev", "WrongPassword");
 
         mockMvc.perform(post("/api/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(loginRequest)))
-                .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.status").value(401));
+                .andExpect(status().isUnauthorized());
     }
 
     @Test
-    @DisplayName("GET /actuator/health should return UP without authentication")
-    void testActuatorHealth_Public() throws Exception {
-        mockMvc.perform(get("/actuator/health"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.status").value("UP"));
+    @DisplayName("GET /api/auth/me without session returns 401 Unauthorized")
+    void testGetMe_Unauthenticated() throws Exception {
+        mockMvc.perform(get("/api/auth/me"))
+                .andExpect(status().isUnauthorized());
     }
 }

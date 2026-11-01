@@ -1,0 +1,939 @@
+================================================================================
+                    GRID - HACKATHON MANAGEMENT PLATFORM
+               COMPREHENSIVE SENIOR ARCHITECT & DEVOPS AUDIT
+================================================================================
+Generated Date: 2026-11-01
+Auditor Role: Senior Software Architect & DevOps Engineer
+Project Name: GRID (formerly Dockerized Hackathon Team Management System / hackrbase)
+Target Repository: https://github.com/chirantan-t/hackrlist.git
+Audit Output File: GRID_PROJECT_AUDIT.txt
+
+--------------------------------------------------------------------------------
+TABLE OF CONTENTS
+--------------------------------------------------------------------------------
+1. SECTION 1  - Project Overview
+2. SECTION 2  - Frontend Audit
+3. SECTION 3  - Backend Audit
+4. SECTION 4  - Current Application Workflows
+5. SECTION 5  - Database Audit
+6. SECTION 6  - Git and GitHub Configuration
+7. SECTION 7  - Docker & Containerization Audit
+8. SECTION 8  - Jenkins CI/CD Pipeline Audit
+9. SECTION 9  - Testing & Quality Assurance Audit
+10. SECTION 10 - Ansible & Configuration Management Audit
+11. SECTION 11 - Problems, Anti-Patterns & Technical Debt
+12. SECTION 12 - Restructuring Readiness for GRID Product Direction
+13. SECTION 13 - Recommended Phased Implementation Plan
+
+================================================================================
+SECTION 1 - PROJECT OVERVIEW
+================================================================================
+
+1.1 ARCHITECTURAL PARADIGM
+The existing application is structured as a 3-tier monolithic web system:
+- Client Tier: Single Page Application (SPA) built with React 18 and Vite 5.
+- API / Application Tier: RESTful service built with Spring Boot 3.3.4 and Java 21 LTS.
+- Persistence Tier: Relational database running MySQL 8.0 in production/Docker, with an in-memory H2 database fallback for local rapid prototyping and automated testing.
+- Edge / Reverse Proxy: Nginx 1.27 Alpine serving static frontend assets and reverse-proxying API requests (`/api/*`) and health probes (`/actuator/*`) to the backend container.
+
+1.2 TECHNOLOGY STACK MATRIX
+--------------------------------------------------------------------------------
+Layer                   Technology / Framework          Version
+--------------------------------------------------------------------------------
+Frontend Framework      React (JavaScript / JSX)        18.3.1
+Build Tool / Bundler    Vite                            5.4.6 / 5.4.21
+Client Router           React Router DOM                6.26.2
+HTTP Client             Axios                           1.7.7
+Visualization           Recharts                        2.12.7
+Iconography             Lucide React                    0.441.0
+Frontend Styling        Pure Vanilla CSS (Variables)    Custom Global Theme
+Backend Framework       Spring Boot                     3.3.4
+Language / Runtime      Java SE Development Kit         21 LTS (Temurin / Oracle)
+ORM / Data Access       Spring Data JPA / Hibernate     Hibernate 6.5.3.Final
+Security & Auth         Spring Security                 6.3.3 (BCrypt, Sessions)
+Validation              Jakarta Bean Validation         Hibernate Validator 8.0
+Application Metrics     Spring Boot Actuator            3.3.4
+Production Database     MySQL Server                    8.0
+Test / Dev Database     H2 Database Engine              2.2.224
+Backend Build Tool      Apache Maven                    3.9.6+
+E2E Testing             Selenium WebDriver              4.25.0 + Chrome Headless
+Unit / Mock Testing     JUnit 5 (Jupiter), Mockito      5.10.3 / Mockito 5.11
+Containerization        Docker Engine & Docker Compose  Docker 29.9.2 / Desktop 4.97
+Continuous Integration  Jenkins Declarative Pipeline    2.568.2 (Windows Service)
+Configuration Mgmt      Ansible                         2.15+ (Idempotent Roles)
+Reverse Proxy           Nginx Alpine                    1.27.x
+
+1.3 PROJECT STRUCTURE AND DIRECTORY LAYOUT
+The project root contains three primary functional areas:
+- `backend/`: Spring Boot Maven application containing domain entities, JPA repositories, transactional services, REST controllers, DTOs, security configurations, and JUnit integration tests.
+- `frontend/`: React Vite SPA containing source assets, components, pages, routing, context providers, and API services.
+- `selenium-tests/`: Standalone Maven module executing automated browser user journeys with Selenium WebDriver and JUnit 5.
+- `deployment/`: Nginx reverse proxy configuration (`default.conf`), Dockerfile for frontend, systemd service descriptors, and deployment/rollback shell scripts (`deploy.sh`, `rollback.sh`, `health-check.sh`).
+- `ansible/`: Configuration management playbooks, inventory definitions (`inventory.ini`), group variables (`all.yml`), and modular roles (`common`, `docker`, `app`, `nginx`).
+- `docs/`: Comprehensive project documentation covering SRS requirements, agile sprints, problem statements, architecture, test plans, and evaluation checklists.
+
+1.4 CURRENT APPLICATION FUNCTIONALITY
+The platform is designed around managing team registrations for an implicit, single hackathon event:
+- User Authentication: Secure login and session invalidation with pre-seeded demo accounts for three roles: ADMIN, ORGANIZER, and TEAM_LEAD.
+- Team Roster Administration: Full CRUD lifecycle for teams (Team Name, Unique Code, Project Title, Description, Lead, Track).
+- Member Management: Adding, updating, and removing individual team members (Full Name, Email, College, Department, Team Role) under each team.
+- Deterministic State Machine: Enforces allowable status transitions (`DRAFT -> REGISTERED -> APPROVED -> IN_PROGRESS -> SUBMITTED -> COMPLETED`, plus `REJECTED`).
+- Query Engine: Dynamic real-time search, multi-criteria filtering by track and status, pagination, and sorting.
+- Analytics Dashboard: Visual KPI cards, status breakdown bar charts, track allocation distributions, and audit logging.
+
+================================================================================
+SECTION 2 - FRONTEND AUDIT
+================================================================================
+
+2.1 FRONTEND FOLDER STRUCTURE
+hackathon-team-management-system/frontend/
+├── package.json
+├── package-lock.json
+├── vite.config.js
+├── index.html
+├── src/
+│   ├── main.jsx                       (Application entry point)
+│   ├── App.jsx                        (Root routing & ProtectedLayout)
+│   ├── index.css                      (Global CSS variables & design system - 533 lines)
+│   ├── context/
+│   │   └── AuthContext.jsx            (Session state, user profile, role helpers)
+│   ├── services/
+│   │   ├── apiClient.js               (Axios client with interceptors & credentials)
+│   │   ├── dashboardService.js        (Summary & distribution endpoints)
+│   │   ├── teamService.js             (Team CRUD, search, status patch)
+│   │   └── memberService.js           (Team member CRUD operations)
+│   ├── components/
+│   │   ├── Navbar.jsx                 (Top navigation header)
+│   │   ├── Sidebar.jsx                (Role-based navigation menu)
+│   │   ├── StatCard.jsx               (Dashboard KPI statistics widget)
+│   │   ├── StatusBadge.jsx            (Pill badge with status colors)
+│   │   ├── TrackBadge.jsx             (Pill badge with track colors)
+│   │   ├── ConfirmModal.jsx           (Generic confirmation dialog)
+│   │   ├── MemberModal.jsx            (Team member add/edit dialog)
+│   │   └── StatusTransitionModal.jsx  (Workflow transition selector with remarks)
+│   └── pages/
+│       ├── Login.jsx                  (Authentication form with demo quick-fills)
+│       ├── Dashboard.jsx              (Executive analytics / Team lead progress - 742 lines)
+│       ├── TeamList.jsx               (Paginated team table with filters & actions)
+│       ├── TeamDetails.jsx            (Team profile, member roster, transitions)
+│       └── TeamForm.jsx               (Enrollment and modification form)
+
+2.2 REACT DEPENDENCY AUDIT
+- React & React-DOM: `^18.3.1`
+- React Router DOM: `^6.26.2` (BrowserRouter, Routes, Route, Navigate, NavLink, useParams, useNavigate)
+- Axios: `^1.7.7`
+- Lucide React: `^0.441.0` (Icons: LayoutDashboard, Users, UserPlus, LogOut, Shield, Terminal, etc.)
+- Recharts: `^2.12.7` (ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Cell, CartesianGrid)
+- Vite: `^5.4.6` / `@vitejs/plugin-react: ^4.3.1`
+
+2.3 ROUTING CONFIGURATION
+Configured in `frontend/src/App.jsx`:
+- `/login`: Public access to `Login` page.
+- `/`: Protected route wrapped in `ProtectedLayout` rendering `Dashboard`.
+- `/teams`: Protected route wrapped in `TeamDirectoryRoute` (redirects `isLead` to `/`).
+- `/teams/new`: Protected route rendering `TeamForm` (Enroll New Team).
+- `/teams/:id`: Protected route rendering `TeamDetails` (Team Profile & Roster).
+- `/teams/:id/edit`: Protected route rendering `TeamForm` (Modify Team Information).
+- `*`: Wildcard fallback redirecting to `/`.
+
+2.4 STATE MANAGEMENT & CONTEXT
+- Global Authentication State: Managed via `AuthContext.jsx`.
+  - State variables: `user`, `loading`.
+  - Derived booleans: `isAuthenticated`, `isAdmin` (role === 'ADMIN'), `isOrganizer` (role === 'ORGANIZER'), `isLead` (role === 'TEAM_LEAD').
+  - Synchronization: On mount, invokes `GET /api/auth/me`. Caches user payload in `localStorage.getItem('htm_user')`.
+- Local Component State:
+  - All pages and modals utilize local `useState` hooks.
+  - No global state store (no Redux, Zustand, Recoil, or TanStack Query).
+  - Data refetching is triggered imperatively via `useEffect` hooks upon dependency changes.
+
+2.5 API INTEGRATION
+- Centralized Axios instance in `frontend/src/services/apiClient.js`:
+  - `baseURL: import.meta.env.VITE_API_BASE_URL || ''` (relies on Vite proxy during local dev and Nginx reverse proxy in production).
+  - `withCredentials: true` ensures the HTTP session cookie (`JSESSIONID`) is automatically passed in cross-origin and same-origin requests.
+  - Response interceptor normalizes Spring Boot error responses, extracting error messages from `error.response?.data?.message` into `error.extractedMessage`.
+
+2.6 ROLE-BASED UI IMPLEMENTATION
+- `Sidebar.jsx`:
+  - Changes "Dashboard" link text to "My Team Status" for `isLead`.
+  - Hides the "Hackathon Teams" directory link for `isLead`.
+  - Displays user role badge (`ADMIN`, `ORGANIZER`, `TEAM_LEAD`).
+- `Dashboard.jsx`:
+  - Contains two completely distinct layouts in a single file:
+    1. Team Lead Layout: Shows single-team status tracker, workflow progress steps, member roster, project description, and quick-action buttons.
+    2. Admin / Organizer Layout: Shows 7 KPI stat cards, Recharts status bar chart, Recharts track bar chart, and recent activity audit table.
+- `TeamList.jsx`:
+  - Hides the "Delete" team button for non-ADMIN users.
+- `TeamDetails.jsx`:
+  - Hides team editing and member deletion if the logged-in user is not authorized.
+
+2.7 STYLING & CSS FRAMEWORK
+- Styling Architecture: Pure custom CSS in `frontend/src/index.css` (no Tailwind, Bootstrap, or Material UI).
+- Theme: Dark Administrative Dashboard.
+  - Colors: Deep midnight background (`--bg-primary: #0b0f19`, `--bg-secondary: #111827`), card containers (`--bg-card: rgba(17, 24, 39, 0.75)`), borders (`--border-subtle: rgba(255, 255, 255, 0.08)`), indigo accent (`--accent-primary: #6366f1`).
+  - Typography: Outfit (headings), Inter (sans-serif body), JetBrains Mono (monospace).
+
+2.8 REUSABLE COMPONENTS
+- `StatCard`: Reusable KPI card with icon container, title, large metric number, and subtitle.
+- `StatusBadge`: Maps registration statuses (`DRAFT`, `REGISTERED`, `APPROVED`, `IN_PROGRESS`, `SUBMITTED`, `COMPLETED`, `REJECTED`) to semantic badge colors.
+- `TrackBadge`: Maps competition tracks (`AI_ML`, `WEB3_BLOCKCHAIN`, `FINTECH`, `HEALTHTECH`, `OPEN_INNOVATION`, `CYBERSECURITY`) to distinct visual tags.
+- `ConfirmModal`: Reusable modal for destructive operations (e.g. deleting team).
+- `MemberModal`: Form modal for entering member details with validation.
+- `StatusTransitionModal`: Dropdown modal enforcing permitted status transitions with required audit remarks.
+
+2.9 CURRENT UI LIMITATIONS & INCONSISTENCIES
+1. Single-Event Hardcoding: The UI assumes only one hackathon exists. There is no hackathon discovery page, no hackathon selection dropdown, and no hackathon creation screen.
+2. Monolithic File Bloat: `Dashboard.jsx` spans 742 lines because it combines two totally different roles and complex chart logic into one component.
+3. Branding Conflict: Header brands display `hackrbase` in some views, while docs and git history refer to `HTM DevOps`. Neither matches the new product name: `GRID`.
+4. Bundle Size Warning: Vite production build reports `dist/assets/index-BQChbekW.js` is 663.95 kB (> 500 kB recommended threshold) due to lack of code splitting (`React.lazy`).
+5. Missing Submissions Interface: There is no UI for teams to submit deliverables (GitHub link, demo URL, pitch deck upload, video recording).
+6. Missing Evaluations Interface: Organizers/Judges have no interface to score projects or view rubrics.
+
+================================================================================
+SECTION 3 - BACKEND AUDIT
+================================================================================
+
+3.1 BACKEND FOLDER STRUCTURE
+hackathon-team-management-system/backend/
+├── pom.xml
+├── src/
+│   ├── main/
+│   │   ├── java/com/hackathon/management/
+│   │   │   ├── HackathonApplication.java        (Spring Boot main runner)
+│   │   │   ├── config/
+│   │   │   │   ├── SecurityConfig.java          (Spring Security filter chain, CORS, CSRF)
+│   │   │   │   ├── CustomUserDetailsService.java(User lookup for authentication)
+│   │   │   │   └── DataInitializer.java         (CommandLineRunner bootstrapping demo data)
+│   │   │   ├── controller/
+│   │   │   │   ├── AuthController.java          (Login, logout, me endpoints)
+│   │   │   │   ├── DashboardController.java     (KPI metrics & distribution charts)
+│   │   │   │   ├── TeamController.java          (Team CRUD, search, status workflow)
+│   │   │   │   └── TeamMemberController.java    (Team roster member operations)
+│   │   │   ├── service/
+│   │   │   │   ├── AuthService.java             (Session authentication logic)
+│   │   │   │   ├── DashboardService.java        (Aggregation queries)
+│   │   │   │   ├── TeamService.java             (Team business logic, RBAC, state machine)
+│   │   │   │   └── TeamMemberService.java       (Roster business logic)
+│   │   │   ├── repository/
+│   │   │   │   ├── UserRepository.java          (Spring Data JPA for User)
+│   │   │   │   ├── TeamRepository.java          (Spring Data JPA for Team with JPQL)
+│   │   │   │   └── TeamMemberRepository.java    (Spring Data JPA for TeamMember)
+│   │   │   ├── entity/
+│   │   │   │   ├── User.java                    (User account entity)
+│   │   │   │   ├── Team.java                    (Team entity)
+│   │   │   │   ├── TeamMember.java              (Team member entity)
+│   │   │   │   ├── Role.java                    (Enum: ADMIN, ORGANIZER, TEAM_LEAD)
+│   │   │   │   ├── RegistrationStatus.java      (Enum with state transition validator)
+│   │   │   │   ├── ProgressStatus.java          (Enum: NOT_STARTED ... SUBMITTED)
+│   │   │   │   ├── Track.java                   (Enum: AI_ML, FINTECH, etc.)
+│   │   │   │   └── TeamRole.java                (Enum: FRONTEND, BACKEND, etc.)
+│   │   │   ├── dto/
+│   │   │   │   ├── LoginRequest.java            (Username and password payload)
+│   │   │   │   ├── AuthResponse.java            (User info and success message)
+│   │   │   │   ├── UserSummaryDto.java          (Safe profile DTO)
+│   │   │   │   ├── TeamCreateRequest.java       (Team creation payload)
+│   │   │   │   ├── TeamUpdateRequest.java       (Team edit payload)
+│   │   │   │   ├── TeamDto.java                 (Team response representation)
+│   │   │   │   ├── TeamMemberRequest.java       (Member payload)
+│   │   │   │   ├── TeamMemberDto.java           (Member response DTO)
+│   │   │   │   ├── StatusChangeRequest.java     (Status transition payload)
+│   │   │   │   ├── DashboardSummaryDto.java     (KPI summary response)
+│   │   │   │   ├── StatusDistributionDto.java   (Status chart data)
+│   │   │   │   ├── TrackDistributionDto.java    (Track chart data)
+│   │   │   │   └── ErrorResponse.java           (RFC 7807-style error payload)
+│   │   │   └── exception/
+│   │   │       ├── GlobalExceptionHandler.java  (@RestControllerAdvice error handler)
+│   │   │       ├── ResourceNotFoundException.java (404 Not Found)
+│   │   │       ├── DuplicateResourceException.java(409 Conflict)
+│   │   │       ├── InvalidWorkflowException.java  (400 Bad Request)
+│   │   │       └── UnauthorizedActionException.java(403 Forbidden)
+│   │   └── resources/
+│   │       ├── application.properties           (Base config with H2 default)
+│   │       └── application-mysql.properties     (MySQL production profile)
+│   └── test/
+│       ├── java/com/hackathon/management/
+│       │   ├── controller/
+│       │   │   ├── AuthControllerIntegrationTest.java (MockMvc authentication tests)
+│       │   │   └── TeamControllerIntegrationTest.java (MockMvc CRUD & security tests)
+│       │   └── service/
+│       │       └── TeamServiceTest.java         (Mockito unit test suite)
+│       └── resources/
+│           └── application-test.properties      (Test profile with H2 create-drop)
+
+3.2 MAVEN CONFIGURATION & VERSIONS
+- Parent POM: `spring-boot-starter-parent: 3.3.4`
+- Java Target: `21 LTS` (`<java.version>21</java.version>`)
+- Core Dependencies:
+  - `spring-boot-starter-web`
+  - `spring-boot-starter-data-jpa`
+  - `spring-boot-starter-security`
+  - `spring-boot-starter-validation`
+  - `spring-boot-starter-actuator`
+  - `mysql-connector-j` (scope: runtime)
+  - `h2` (scope: runtime)
+  - `spring-boot-starter-test` (scope: test)
+  - `spring-security-test` (scope: test)
+- Plugins: `spring-boot-maven-plugin`, `maven-surefire-plugin` (version 3.2.5 with `-Xmx512m -Xms128m -Xss512k`).
+
+3.3 CONTROLLERS AND API ENDPOINTS
+-------------------------------------------------------------------------------------------------------------------
+Method  Endpoint                                 Role Required               Description
+-------------------------------------------------------------------------------------------------------------------
+POST    /api/auth/login                          Public                      Authenticate user and establish session
+POST    /api/auth/logout                         Public                      Destroy HTTP session and clear context
+GET     /api/auth/me                             Authenticated               Fetch currently authenticated user
+GET     /api/teams                               Authenticated (Scoped)      Paginated team list with filters
+GET     /api/teams/search                        Authenticated (Scoped)      Keyword search with pagination
+GET     /api/teams/my-team                       Authenticated               Get first team owned by current user
+GET     /api/teams/{id}                          Authenticated (Scoped)      Get team details by ID
+POST    /api/teams                               ADMIN, ORGANIZER, TEAM_LEAD Create new team
+PUT     /api/teams/{id}                          ADMIN, ORGANIZER, TEAM_LEAD Update existing team metadata
+DELETE  /api/teams/{id}                          ADMIN only                  Delete team and cascade delete members
+PATCH   /api/teams/{id}/status                   ADMIN, ORGANIZER, TEAM_LEAD Enforce workflow status transition
+GET     /api/teams/{id}/members                  Authenticated               List members of a team
+POST    /api/teams/{id}/members                  ADMIN, ORGANIZER, TEAM_LEAD Add member to team roster
+PUT     /api/teams/{id}/members/{memberId}       ADMIN, ORGANIZER, TEAM_LEAD Update team member details
+DELETE  /api/teams/{id}/members/{memberId}       ADMIN, ORGANIZER, TEAM_LEAD Remove member from team roster
+GET     /api/dashboard/summary                   Authenticated               Get aggregate KPI counts
+GET     /api/dashboard/status-distribution       Authenticated               Get status count breakdown for charts
+GET     /api/dashboard/track-distribution        Authenticated               Get track count breakdown for charts
+GET     /actuator/health                         Public                      Spring Actuator health probe
+GET     /actuator/info                           Public                      Spring Actuator application info
+
+3.4 AUTHENTICATION & AUTHORIZATION ARCHITECTURE
+- Session-Based Security: Uses `HttpSessionSecurityContextRepository` to maintain authenticated context across HTTP calls via the standard `JSESSIONID` cookie.
+- Passwords: Encrypted using `BCryptPasswordEncoder(10)`. No plain passwords stored.
+- CORS Configuration: Permits `http://localhost:*` and `http://127.0.0.1:*` with credentials enabled (`allowCredentials: true`) and pre-flight caching.
+- CSRF Protection: Disabled (`csrf.disable()`) under the assumption of REST API usage with CORS isolation.
+- Security Filter Rules: Public endpoints strictly limited to login, logout, health actuator, and H2 console. Method security (`@EnableMethodSecurity`, `@PreAuthorize`) protects mutation endpoints.
+
+3.5 VALIDATION AND EXCEPTION HANDLING
+- Central Exception Handling: `@RestControllerAdvice` in `GlobalExceptionHandler` intercepts domain exceptions and generates consistent RFC-style JSON error payloads (`ErrorResponse`).
+- Handled Exceptions:
+  - `ResourceNotFoundException` -> HTTP 404
+  - `DuplicateResourceException` -> HTTP 409
+  - `InvalidWorkflowException` -> HTTP 400
+  - `UnauthorizedActionException` -> HTTP 403
+  - `AccessDeniedException` -> HTTP 403
+  - `BadCredentialsException` -> HTTP 401
+  - `MethodArgumentNotValidException` -> HTTP 400 (with field-level validation error map)
+
+3.6 BACKEND TEST SUITE
+- Total Backend Tests: 17
+- Pass Rate: 100% (17 passed, 0 failures, 0 errors in 9.4 seconds)
+- Breakdown:
+  - `AuthControllerIntegrationTest` (3 tests): Login success, invalid credentials rejection (401), public health probe verification.
+  - `TeamControllerIntegrationTest` (9 tests): Team creation (201), paginated queries, invalid workflow jump rejection (400), valid workflow transition, role permission enforcement (Admin can delete; Organizer/Lead cannot delete -> 403; Lead queries scoped to own team).
+  - `TeamServiceTest` (5 tests): Unit tests verifying unique code validation, duplicate code exceptions, and state machine transition rules.
+
+================================================================================
+SECTION 4 - CURRENT APPLICATION WORKFLOWS
+================================================================================
+
+4.1 TEAM REGISTRATION AND MANAGEMENT
+- Implemented:
+  - Creation of teams with automatic or manual team code generation.
+  - Uniqueness constraint enforced on `team_code`.
+  - Association of track (`AI_ML`, `WEB3_BLOCKCHAIN`, `FINTECH`, `HEALTHTECH`, `OPEN_INNOVATION`, `CYBERSECURITY`).
+  - Pagination, sorting, and multi-criteria filtering by track and status.
+  - Search query matching team name, code, or project title.
+- Partially Implemented:
+  - Team lead assignment is handled as a plain string (`teamLead: "username"`). If a Team Lead creates a team, the backend forces the lead field to their username, but there is no foreign key relation.
+- Missing:
+  - Team join requests or invitation tokens.
+  - Team member cap enforcement (e.g. maximum 4 members per team).
+  - Team avatar or logo upload.
+
+4.2 HACKATHON MANAGEMENT
+- Status: ENTIRELY MISSING.
+  - There is NO `Hackathon` entity in the database.
+  - There are NO endpoints to create, publish, schedule, or configure hackathons.
+  - The application is hardcoded around a single implicit event.
+
+4.3 ORGANIZER OPERATIONS
+- Implemented:
+  - View all registered teams across all tracks.
+  - Filter and search teams.
+  - Transition team statuses (`REGISTERED -> APPROVED / REJECTED`, `SUBMITTED -> COMPLETED / REJECTED`).
+  - View aggregate dashboard statistics and track distribution charts.
+- Missing:
+  - Creating and editing hackathon guidelines, timelines, and prize tracks.
+  - Managing announcements or sending notifications to participants.
+  - Assigning judges or reviewing submissions with scoring rubrics.
+
+4.4 SUPER ADMIN OPERATIONS
+- Implemented:
+  - Delete any team (`DELETE /api/teams/{id}`).
+  - Execute any status transition.
+- Missing:
+  - User management (cannot create, edit, deactivate, or assign roles to users via UI or API).
+  - Platform-wide governance (no audit log viewing, no system health dashboards, no multi-tenant hackathon controls).
+
+4.5 PROJECT MANAGEMENT
+- Partially Implemented:
+  - `Team` entity holds two text fields: `projectTitle` and `projectDescription`, and an enum `progressStatus` (`NOT_STARTED, IN_DESIGN, IN_DEVELOPMENT, CODE_FREEZE, TESTED, SUBMITTED`).
+- Missing:
+  - Project milestones, task boards, or sprint management.
+  - Repository linking (GitHub, GitLab), live demo URLs, or architecture documentation attachments.
+
+4.6 SUBMISSION MANAGEMENT
+- Partially Implemented:
+  - A team can transition its registration status to `SUBMITTED`.
+- Missing:
+  - No `Submission` entity.
+  - No capability to store repository links, video demo links, slide deck URLs, or submission write-ups.
+  - No submission deadline enforcement or late-submission tracking.
+
+4.7 DASHBOARD AND ANALYTICS
+- Implemented:
+  - Real-time KPI summary counts: Total Teams, Registered, Approved, In Progress, Submitted, Completed, Total Members.
+  - Recharts bar chart for Registration Status distribution.
+  - Recharts bar chart for Track distribution.
+  - Recent team updates table.
+  - Team Lead specific dashboard showing sequential workflow step progress.
+- Missing:
+  - Filtering analytics by specific hackathon.
+  - Time-series registration velocity analytics.
+  - Score distribution and leaderboards.
+
+================================================================================
+SECTION 5 - DATABASE AUDIT
+================================================================================
+
+5.1 DATABASE CONFIGURATION
+- Base Configuration (`application.properties`):
+  - In-memory H2 database by default (`jdbc:h2:mem:hackathondb;MODE=MySQL`) for zero-dependency local development.
+- Production / Docker Profile (`application-mysql.properties`):
+  - Target: MySQL 8.0 on internal Docker host `db:3306`.
+  - Database Name: `${MYSQL_DATABASE:hackathondb}`
+  - User: `${MYSQL_USER:hackathon_user}`
+  - Password: `${MYSQL_PASSWORD:hackathon_pass}` (injected via `.env`)
+  - Hibernate Dialect: `org.hibernate.dialect.MySQLDialect`
+  - DDL Auto Policy: `update` (auto-creates and modifies tables on application boot)
+- Test Profile (`application-test.properties`):
+  - In-memory H2 database (`jdbc:h2:mem:testdb;MODE=MySQL`)
+  - Hibernate DDL Auto: `create-drop` (clean isolation per test run)
+
+5.2 DATABASE TABLES AND RELATIONSHIPS
+Currently, exactly three tables exist in the database:
+
+1. `users` Table:
+   - `id`: BIGINT AUTO_INCREMENT (Primary Key)
+   - `username`: VARCHAR(50) NOT NULL UNIQUE
+   - `password`: VARCHAR(255) NOT NULL (BCrypt hash)
+   - `full_name`: VARCHAR(100) NOT NULL
+   - `email`: VARCHAR(100) NOT NULL UNIQUE
+   - `role`: VARCHAR(20) NOT NULL (ADMIN, ORGANIZER, TEAM_LEAD)
+   - `created_at`: DATETIME NOT NULL
+
+2. `teams` Table:
+   - `id`: BIGINT AUTO_INCREMENT (Primary Key)
+   - `team_name`: VARCHAR(100) NOT NULL
+   - `team_code`: VARCHAR(30) NOT NULL UNIQUE
+   - `project_title`: VARCHAR(200) NOT NULL
+   - `project_description`: TEXT NOT NULL
+   - `team_lead`: VARCHAR(100) NOT NULL (Loose string, matching username)
+   - `track`: VARCHAR(30) NOT NULL (AI_ML, WEB3_BLOCKCHAIN, FINTECH, HEALTHTECH, OPEN_INNOVATION, CYBERSECURITY)
+   - `registration_status`: VARCHAR(30) NOT NULL (DRAFT, REGISTERED, APPROVED, IN_PROGRESS, SUBMITTED, COMPLETED, REJECTED)
+   - `progress_status`: VARCHAR(30) NOT NULL (NOT_STARTED, IN_DESIGN, IN_DEVELOPMENT, CODE_FREEZE, TESTED, SUBMITTED)
+   - `created_at`: DATETIME NOT NULL
+   - `updated_at`: DATETIME NOT NULL
+
+3. `team_members` Table:
+   - `id`: BIGINT AUTO_INCREMENT (Primary Key)
+   - `team_id`: BIGINT NOT NULL (Foreign Key -> `teams.id`, ON DELETE CASCADE)
+   - `full_name`: VARCHAR(100) NOT NULL
+   - `email`: VARCHAR(100) NOT NULL
+   - `college`: VARCHAR(150) NOT NULL
+   - `department`: VARCHAR(100) NOT NULL
+   - `team_role`: VARCHAR(30) NOT NULL (FRONTEND, BACKEND, FULLSTACK, UI_UX, DATA_SCIENTIST, DEVOPS)
+   - `created_at`: DATETIME NOT NULL
+   - Unique Constraint: `uk_team_member_email` on (`team_id`, `email`)
+
+5.3 PRIMARY AND FOREIGN KEYS
+- Existing Foreign Keys: Exactly ONE foreign key exists in the entire schema:
+  `team_members.team_id` REFERENCES `teams.id` with `orphanRemoval = true` and `CascadeType.ALL`.
+- Missing Foreign Keys:
+  - `teams.team_lead` is a raw string. It has NO foreign key constraint referencing `users.username` or `users.id`.
+  - There is NO foreign key linking teams to any event or hackathon.
+
+5.4 MIGRATIONS AND SCHEMA MANAGEMENT
+- Critical Defect: NO schema migration tools are installed (neither Flyway nor Liquibase).
+- Table generation relies entirely on Hibernate's `spring.jpa.hibernate.ddl-auto=update`.
+- Consequence: In production, `ddl-auto=update` cannot drop obsolete columns, cannot safely rename fields, cannot enforce index maintenance, and risks data corruption when entities change.
+
+5.5 BOOTSTRAP DEMO SEED DATA
+Handled in `DataInitializer.java` when `app.bootstrap.seed-data=true`:
+- Users:
+  - `admin` (Role: ADMIN, Email: `admin@hackathon.dev`, Password: configured via BCrypt)
+  - `organizer` (Role: ORGANIZER, Email: `organizer@hackathon.dev`, Password: configured via BCrypt)
+  - `teamlead` (Role: TEAM_LEAD, Email: `alex.lead@hackathon.dev`, Password: configured via BCrypt)
+- Teams:
+  - 5 seed teams initialized across different tracks and statuses (`Neural Navigators`, `Ledger Leap`, `BioPulse Diagnostics`, `EtherGuardians`, `CyberShield Sentinel`).
+- Members:
+  - 2 to 3 team members assigned to each seed team.
+
+================================================================================
+SECTION 6 - GIT AND GITHUB CONFIGURATION
+================================================================================
+
+6.1 REPOSITORY METADATA
+- Remote Origin URL: `https://github.com/chirantan-t/hackrlist.git`
+- Current Checked-Out Branch: `main`
+- Existing Local Branches:
+  - `main` (tracks `origin/main`)
+  - `develop` (tracks `origin/develop`)
+  - `feature/dashboard-and-status-workflow` (tracks `origin/feature/dashboard-and-status-workflow`)
+  - `feature/team-registration` (tracks `origin/feature/team-registration`)
+- Existing Tags: `v1.0.0` (commit `6879fe9`)
+
+6.2 RECENT COMMIT HISTORY
+- `2041f2b` (HEAD -> main, origin/main) ci(jenkins): make docker command checks robust across sh and bat environments
+- `1ccff01` ci(jenkins): ensure batch errorlevel reset on windows docker fallback commands
+- `3446e67` ci(jenkins): configure cross-platform bat/sh execution and tune surefire JVM memory
+- `6736cb5` feat(ui): add dynamic role-based dashboard headers, banners, and tailored badges
+- `dd7a546` test(demo): add CaptureDemoScreenshotsTest to automate live UI demonstration captures
+- `bdedd0a` fix(selenium): synchronize waiting for newly created team code in UserJourneysTest
+- `6879fe9` (tag: v1.0.0, origin/develop, develop) feat(branding): update system name and branding from HTM Devops to hackrbase
+- `39c357c` fix(testing): resolve Spring Data 3.3 Page assertion, AuthContext loading flag, and headless Selenium input/click synchronization
+- `6058747` release: v1.0.0 final verified release
+- `bc28408` feat(devops): add Docker multi-stage build, Jenkinsfile CI/CD, Selenium tests, Ansible playbooks, and final project documentation
+
+6.3 ACTIVE UNCOMMITTED CHANGES IN WORKING TREE
+Warning: The local workspace has 17 uncommitted modified files:
+- `.dockerignore`
+- `backend/src/main/java/com/hackathon/management/controller/TeamController.java`
+- `backend/src/main/java/com/hackathon/management/repository/TeamRepository.java`
+- `backend/src/main/java/com/hackathon/management/service/DashboardService.java`
+- `backend/src/main/java/com/hackathon/management/service/TeamMemberService.java`
+- `backend/src/main/java/com/hackathon/management/service/TeamService.java`
+- `backend/src/test/java/com/hackathon/management/controller/TeamControllerIntegrationTest.java`
+- `deployment/nginx/Dockerfile`
+- `deployment/nginx/default.conf`
+- `docker-compose.yml`
+- `frontend/src/App.jsx`
+- `frontend/src/components/Sidebar.jsx`
+- `frontend/src/pages/Dashboard.jsx`
+- `frontend/src/pages/TeamDetails.jsx`
+- `frontend/src/pages/TeamForm.jsx`
+- `frontend/src/services/teamService.js`
+- `selenium-tests/src/test/java/com/hackathon/selenium/UserJourneysTest.java` (contains 233 leading blank lines!)
+
+6.4 GIT WORKFLOW PATTERN
+Follows standard GitFlow:
+- `main`: Production-ready release branch tagged with semantic versions (`v1.0.0`).
+- `develop`: Integration branch for sprint deliverables.
+- `feature/*`: Dedicated branches for major epics (Team Registration, Dashboard).
+
+================================================================================
+SECTION 7 - DOCKER & CONTAINERIZATION AUDIT
+================================================================================
+
+7.1 DOCKERFILES
+1. Backend Dockerfile (`hackathon-team-management-system/Dockerfile`):
+   - Multi-Stage Build:
+     - Stage 1 (Builder): `maven:3.9.6-eclipse-temurin-21-alpine`. Copies `pom.xml`, executes `mvn dependency:go-offline`, copies `src/`, runs `mvn clean package -DskipTests`.
+     - Stage 2 (Runtime): `eclipse-temurin:21-jre-alpine`. Installs `curl` and `tzdata`.
+     - Non-root User: Creates `appgroup` and `appuser` (UID/GID non-root) for security compliance.
+     - Port: `EXPOSE 8080`.
+     - Health Check: `curl -f http://localhost:8080/actuator/health || exit 1` (interval: 15s, timeout: 5s, start-period: 30s, retries: 3).
+     - Entrypoint: `java $JAVA_OPTS -jar /app/app.jar` with G1GC flags.
+
+2. Frontend Dockerfile (`deployment/nginx/Dockerfile`):
+   - Multi-Stage Build:
+     - Stage 1 (Builder): `node:22-alpine`. Runs `npm ci` and `npm run build`.
+     - Stage 2 (Runtime): `nginx:1.27-alpine`.
+     - Configuration: Copies `deployment/nginx/default.conf` to `/etc/nginx/conf.d/default.conf`.
+     - Static Assets: Copies `/app/dist` to `/usr/share/nginx/html`.
+     - Port: `EXPOSE 80`.
+     - Health Check: `wget -qO- http://127.0.0.1:80/ || exit 1`.
+
+7.2 DOCKER COMPOSE CONFIGURATION (`docker-compose.yml`)
+Services Defined:
+- `db`:
+  - Image: `mysql:8.0`
+  - Container Name: `hackathon_mysql`
+  - Environment: `MYSQL_DATABASE`, `MYSQL_USER`, `MYSQL_PASSWORD`, `MYSQL_ROOT_PASSWORD`
+  - Volumes: `mysql_data:/var/lib/mysql` (named volume: `hackathon_mysql_data`)
+  - Networks: `hackathon_net` (bridge)
+  - Health Check: `mysqladmin ping -h localhost -u root -p$$MYSQL_ROOT_PASSWORD`
+  - Host Port: NOT exposed directly to host (isolated inside container network).
+
+- `backend`:
+  - Image: `hackathon-team-management-backend:1.0.0`
+  - Container Name: `hackathon_backend`
+  - Depends On: `db` (condition: `service_healthy`)
+  - Environment: `SERVER_PORT: 8080`, `SPRING_PROFILES_ACTIVE: mysql`, `SPRING_DATASOURCE_URL: jdbc:mysql://db:3306/...`
+  - Networks: `hackathon_net`
+  - Health Check: `curl -f http://localhost:8080/actuator/health`
+  - Host Port: NOT exposed directly to host (proxied through Nginx).
+
+- `frontend`:
+  - Image: `hackathon-team-management-frontend:1.0.0`
+  - Container Name: `hackathon_frontend`
+  - Depends On: `backend` (condition: `service_healthy`)
+  - Ports: `${NGINX_PORT:-8081}:80` (mapped to host port 8081)
+  - Networks: `hackathon_net`
+  - Health Check: `wget -qO- http://127.0.0.1:80/`
+
+7.3 NGINX REVERSE PROXY CONFIGURATION (`deployment/nginx/default.conf`)
+- Routing:
+  - `/` -> Serves React SPA static files (`try_files $uri $uri/ /index.html`)
+  - `/api/` -> Proxies to `http://backend:8080/api/` with WebSocket upgrade and proxy headers
+  - `/actuator/` -> Proxies to `http://backend:8080/actuator/`
+- Performance: Gzip compression enabled for JS, CSS, JSON, XML.
+- Security Headers: `X-Content-Type-Options: nosniff`, `X-Frame-Options: SAMEORIGIN`, `X-XSS-Protection: 1; mode=block`, `Referrer-Policy: strict-origin-when-cross-origin`.
+
+7.4 RUNTIME CONTAINER STATUS & DETECTED BLOCKERS
+- Host Docker Engine: Docker Desktop 4.97.0 (Engine 29.9.2) is operational on Windows.
+- Current Containers: None active (`docker ps -a` returns empty).
+- Analysis: Containers are not running simply because `docker compose up -d` has not been invoked in the current session. The configuration itself is structurally sound.
+
+================================================================================
+SECTION 8 - JENKINS CI/CD PIPELINE AUDIT
+================================================================================
+
+8.1 JENKINS INSTALLATION AND SERVICE STATUS
+- Controller Host: Installed as a native Windows Service named `Jenkins` (`C:\Program Files\Jenkins\jenkins.exe`).
+- State: Currently `Running` (Process ID: 5836).
+- Web UI Port: Listening on `http://localhost:8080` (PID 10352).
+- Jenkins Version: `2.568.2`.
+- Home Directory: `C:\ProgramData\Jenkins\.jenkins`.
+- User Security Realm: `HudsonPrivateSecurityRealm` with `FullControlOnceLoggedInAuthorizationStrategy`.
+- Existing Jenkins User Accounts:
+  - `chirantan-t` (Full Name: Chirantan Tondale, Email: `chirantantondale@gmail.com`)
+  - `devops` (Email: `devops@hackathon.dev`)
+
+8.2 EXISTING JOBS AND PIPELINES
+- `hackathon-team-management-system`: Pipeline job linked to `https://github.com/chirantan-t/hackrlist.git`.
+- `DevOps-Lab-3`: Legacy freestyle/lab job.
+
+8.3 DECLARATIVE PIPELINE STAGES (`Jenkinsfile`)
+The `Jenkinsfile` defines a 9-stage cross-platform pipeline (supporting both `sh` on Linux and `bat` on Windows):
+1. Checkout Source: Clones Git repository using SCM checkout.
+2. Environment Verification: Verifies `java`, `mvn`, `node`, and `npm` CLI availability.
+3. Backend Build & Unit Tests: Executes `mvn clean verify --batch-mode` inside `backend/` and archives JUnit surefire test XMLs.
+4. Frontend Build: Executes `npm ci` and `npm run build` inside `frontend/`.
+5. Selenium Browser Journeys: Executes `mvn clean test -Dheadless=true` inside `selenium-tests/` and publishes test reports.
+6. Docker Multi-Stage Build & Tag: Compiles Spring Boot JAR and attempts Docker image build (`hackathon-team-management-system:1.0.0-${BUILD_NUMBER}`).
+7. Publish Image to Registry: Uses credentials identifier `dockerhub-credentials` to log in, tag, and push images to Docker Hub (skipped if credentials not supplied).
+8. Deploy Container Stack: Launches container stack via `docker compose up -d --remove-orphans`.
+9. Health Verification & Auto-Rollback: Probes `http://localhost:8082/actuator/health` to verify runtime health.
+
+8.4 EXECUTION HISTORY AND RUNTIME ANOMALY
+- Recent Build Runs: Builds #1 through #7 have executed.
+- Build #7 Status: Finished with `SUCCESS`.
+- Notable Observation:
+  In the Jenkins build log, Stage 6 and Stage 8 use conditional fallback syntax:
+  `where docker >nul 2>&1 && docker compose up -d ... || (echo [INFO] Deployment stack active ...)`
+  Because Jenkins runs as a Windows Service under a LocalSystem/service account, it may not have direct access to the Docker Desktop named pipe running in the user desktop session. The pipeline gracefully falls back to archiving the Maven JAR artifact without halting the build.
+
+================================================================================
+SECTION 9 - TESTING & QUALITY ASSURANCE AUDIT
+================================================================================
+
+9.1 UNIT AND INTEGRATION TESTS (JUnit 5 + MockMvc)
+Total Tests: 17 backend tests
+1. `AuthControllerIntegrationTest` (Spring Boot + MockMvc):
+   - `testLogin_Success`: Asserts HTTP 200, valid JSON response with role and username.
+   - `testLogin_InvalidCredentials`: Asserts HTTP 401 and structured error response.
+   - `testActuatorHealth_Public`: Asserts HTTP 200 and `{"status": "UP"}` on `/actuator/health`.
+2. `TeamControllerIntegrationTest` (Spring Boot + MockMvc):
+   - `testCreateTeam_Success`: Asserts HTTP 201 Created and team response payload.
+   - `testGetTeams_Paginated`: Asserts pagination structure and total element counts.
+   - `testUpdateTeamStatus_WorkflowValidation`: Asserts HTTP 400 when jumping illegal status (`DRAFT -> COMPLETED`) and HTTP 200 on permitted transition (`DRAFT -> REGISTERED`).
+   - `testDeleteTeam_ForbiddenForLead`: Asserts HTTP 403 Forbidden for TEAM_LEAD.
+   - `testDeleteTeam_SuccessForAdmin`: Asserts HTTP 204 No Content for ADMIN.
+   - `testDeleteTeam_ForbiddenForOrganizer`: Asserts HTTP 403 Forbidden for ORGANIZER.
+   - `testGetTeams_ScopedForLead`: Asserts TEAM_LEAD only receives their assigned team.
+   - `testGetTeamById_ForbiddenForOtherTeam`: Asserts HTTP 403 when TEAM_LEAD queries another team.
+   - `testGetMyTeam_Success`: Asserts HTTP 200 and returns current user's team.
+3. `TeamServiceTest` (Mockito Unit Tests):
+   - Tests unique team code constraint, duplicate resource exception handling, and status transition validator logic without booting the full Spring context.
+
+9.2 BROWSER END-TO-END TESTS (Selenium WebDriver)
+Location: `selenium-tests/src/test/java/com/hackathon/selenium/`
+- Technology: Selenium Java 4.25.0, ChromeDriver via Selenium Manager, JUnit 5.
+- Headless Support: Headless Chrome toggled via `-Dheadless=true` or `HEADLESS=true`.
+- 5 Critical User Journeys in `UserJourneysTest.java`:
+  - Journey 1: Login validation asserting invalid credential alerts and successful dashboard redirect.
+  - Journey 2: Team creation through form UI and asserting code presence in directory table.
+  - Journey 3: Real-time search and filter verification by team code.
+  - Journey 4: Modifying project title and asserting instant profile update.
+  - Journey 5: Authorized status transition from `REGISTERED -> APPROVED` by Organizer and asserting badge change.
+- Automated Failure Evidence: `BaseSeleniumTest` registers an `AfterTestExecutionCallback` capturing timestamped PNG screenshots in `target/screenshots/` upon any assertion failure.
+
+9.3 TEST COVERAGE GAPS
+1. Frontend Tests: 0 tests exist in `frontend/`. No Vitest, Jest, or React Testing Library suites are configured.
+2. TeamMember Service/Controller: No dedicated unit or integration tests exist for `TeamMemberService` or `TeamMemberController`.
+3. Dashboard Aggregations: No unit tests exist for `DashboardService` mathematical aggregations.
+4. Source Code Defect: `selenium-tests/.../UserJourneysTest.java` currently has 233 empty blank lines before line 234 in the working tree.
+
+================================================================================
+SECTION 10 - ANSIBLE & CONFIGURATION MANAGEMENT AUDIT
+================================================================================
+
+10.1 ANSIBLE FILE STRUCTURE
+hackathon-team-management-system/ansible/
+├── inventory.ini
+├── playbook.yml
+├── README.md
+├── group_vars/
+│   └── all.yml
+└── roles/
+    ├── common/tasks/main.yml    (Base OS packages: curl, git, ufw firewall rules)
+    ├── docker/tasks/main.yml    (Docker CE engine repository, package installation)
+    ├── app/
+    │   ├── tasks/main.yml       (Clones app repo, renders .env, runs docker compose)
+    │   └── templates/env.j2     (Jinja2 template for environment variable injection)
+    └── nginx/
+        ├── tasks/main.yml       (Nginx installation and reverse proxy management)
+        └── templates/default.conf.j2 (Jinja2 template for host Nginx configuration)
+
+10.2 INVENTORY CONFIGURATION (`inventory.ini`)
+- Groups:
+  - `[local]`: Localhost simulation with `ansible_connection=local` and `/usr/bin/python3`.
+  - `[staging]`: `staging-server.hackathon.internal` (192.168.1.100).
+  - `[production]`: `prod-server-01.hackathon.internal` (10.0.0.50).
+  - `[hackathon_servers:children]`: Aggregates local, staging, and production.
+- Default Variables: `app_directory=/opt/hackathon-team-management-system`, `release_tag=1.0.0`, `app_port=8081`.
+
+10.3 PLAYBOOK EXECUTION & IDEMPOTENCY
+- Playbook (`playbook.yml`):
+  - Target: `hosts: hackathon_servers` with `become: yes`.
+  - Pre-task: Enforces supported Linux distribution (`Debian`, `RedHat`, `Rocky`, `Ubuntu`) or `ansible_connection == 'local'`.
+  - Role Execution Sequence: `common -> docker -> app -> nginx`.
+  - Post-task Verification: Invokes `ansible.builtin.uri` against `http://localhost:8081/actuator/health` with up to 15 retries (3-second delay) until HTTP 200 `UP` status is confirmed.
+
+10.4 DEPLOYMENT & ROLLBACK SCRIPTS (`deployment/scripts/`)
+- `deploy.sh`: Orchestrates zero-downtime container replacement using Docker Compose, tags `.current_stable_version`, and triggers automated health checks.
+- `rollback.sh`: Triggered when health probes fail; inspects `.current_stable_version`, updates `.env` with the fallback image tag, and restarts containers.
+- `health-check.sh`: Probes Actuator health endpoint with configurable timeout loops.
+
+================================================================================
+SECTION 11 - PROBLEMS, ANTI-PATTERNS & TECHNICAL DEBT
+================================================================================
+
+11.1 CRITICAL ISSUES (MUST RESOLVE BEFORE GRID RESTRUCTURING)
+1. Single-Hackathon Hardcoding: The data model and controllers completely lack the concept of a `Hackathon`. It is impossible to host multiple events, view past hackathons, or filter registrations by event.
+2. Incompatible Role Architecture: Current roles are `ADMIN`, `ORGANIZER`, and `TEAM_LEAD`. The new GRID product specification mandates `TEAM`, `ORGANIZER`, and `SUPER_ADMIN`.
+3. Loose Association of Team Lead: `teams.team_lead` is stored as an arbitrary text string matching username rather than a true Foreign Key to `users.id`. This prevents multi-team participation, user renames, or proper referential integrity.
+4. Total Absence of Submissions & Evaluation Pipeline: There is no data model for project submissions (repo URL, demo URL, documentation, pitch deck, video) or judging rubrics and scores.
+5. Missing Schema Migrations: Lack of Flyway or Liquibase means table alterations depend on Hibernate `ddl-auto=update`, which cannot drop obsolete columns or perform non-destructive schema migrations.
+
+11.2 HIGH-PRIORITY TECHNICAL DEBT
+6. Working Tree Pollution: 17 modified files remain uncommitted in the git working tree, including corrupted leading blank lines in `UserJourneysTest.java` and uncommitted edits to `Dashboard.jsx`.
+7. Zero Frontend Automated Testing: No unit or integration test suite (Vitest/Jest) exists for the React SPA. Any UI restructuring has no automated test harness to catch regressions.
+8. Monolithic Frontend Bundle: Lack of route-based code splitting (`React.lazy`) results in a single 664 kB JavaScript chunk, impacting initial page load performance.
+9. Windows Service Docker Context Disconnect: When Jenkins executes as a native Windows service, it lacks access to the active user's Docker Desktop named pipe, necessitating defensive fallback commands that bypass true container deployment in CI.
+
+11.3 ARCHITECTURAL & SECURITY CONCERNS
+10. CSRF Protection Disabled: `csrf.disable()` is active in `SecurityConfig.java`. While standard for bearer tokens, session-cookie-based APIs (`JSESSIONID`) are vulnerable to cross-site request forgery without SameSite/CSRF tokens.
+11. Inconsistent Branding: System names vary between `hackrbase`, `HTM DevOps`, and `Hackathon Team Management System`. Needs universal alignment to `GRID`.
+12. Lack of User Administration UI: Super Admins cannot create, deactivate, or manage users via any frontend screen or backend endpoint.
+
+================================================================================
+SECTION 12 - RESTRUCTURING READINESS FOR GRID PRODUCT DIRECTION
+================================================================================
+
+12.1 NEW PRODUCT SPECIFICATION (GRID)
+- Target Identity: "GRID – Hackathon Management Platform"
+- Visual Aesthetics: Premium Black & Neon-Green visual identity (`#00FF66` / `#10B981`), Apple-inspired glassmorphism, backdrop blur (`backdrop-filter: blur(16px)`), sleek translucent borders.
+- Three Target Roles:
+  1. TEAM: Discover hackathons, register teams, manage members, work on projects, submit solutions (repo, demo, video, deck).
+  2. ORGANIZER: Create and publish multiple hackathons, manage registrations, participants, submissions, evaluations, and broadcast announcements.
+  3. SUPER ADMIN: Platform-wide governance, manage organizers, audit users, oversee all hackathons, assign permissions, and monitor system health.
+
+12.2 EXISTING COMPONENTS ELIGIBLE FOR REUSE
+- Security & Authentication Infrastructure: `SecurityConfig.java`, BCrypt password encoder, session management, and `AuthService.java` structure can be retained and adapted.
+- Reusable UI Components: `StatCard.jsx`, `StatusBadge.jsx`, `TrackBadge.jsx`, `ConfirmModal.jsx`, `MemberModal.jsx`, `StatusTransitionModal.jsx` can be reused with updated CSS styling.
+- API Client Interceptor: `frontend/src/services/apiClient.js` with error extraction and cookie credential forwarding.
+- Docker Packaging: Multi-stage `Dockerfile` and `deployment/nginx/Dockerfile` architecture can be preserved directly.
+- Reverse Proxy Configuration: `deployment/nginx/default.conf` reverse proxy routing to `/api/` and `/actuator/`.
+- CI/CD & Ansible Pipeline: 9-stage `Jenkinsfile` and modular Ansible roles (`common`, `docker`, `app`, `nginx`) are robust and should be preserved.
+
+12.3 COMPONENTS REQUIRING RESTRUCTURING
+- Navigation & Layout:
+  - `Sidebar.jsx` and `Navbar.jsx`: Redesign with neon-green aesthetic, Apple glassmorphism styling, and role-based links corresponding to TEAM, ORGANIZER, and SUPER ADMIN.
+  - `App.jsx`: Overhaul routes to support hackathon scoping (e.g. `/hackathons`, `/hackathons/:id`, `/hackathons/:id/teams`, `/admin/*`).
+- Dashboard Architecture:
+  - Decompose monolithic 742-line `Dashboard.jsx` into three dedicated modular views:
+    1. `TeamDashboard.jsx` (active registrations, submission deadlines, project workspace)
+    2. `OrganizerDashboard.jsx` (hackathon management, registration approvals, submission review)
+    3. `SuperAdminDashboard.jsx` (platform overview, organizer approvals, user administration, system telemetry)
+- Global Design System (`frontend/src/index.css`):
+  - Replace indigo theme with Apple-inspired dark glassmorphism:
+    - Base: `#050505` to `#0A0A0A`
+    - Neon Accent: `#00FF66` (Primary Neon Green) and `#10B981` (Emerald Glow)
+    - Glass Panels: `rgba(18, 18, 20, 0.65)` with `backdrop-filter: blur(20px)` and `border: 1px solid rgba(255, 255, 255, 0.08)`
+    - Glows: `box-shadow: 0 0 25px rgba(0, 255, 102, 0.15)`
+
+12.4 DATABASE ENTITY MODIFICATIONS & ADDITIONS
+1. Role Enum Update:
+   - Change `Role.java`: `ADMIN, ORGANIZER, TEAM_LEAD` -> `SUPER_ADMIN, ORGANIZER, TEAM`.
+2. New Entity: `Hackathon.java`:
+   - `id`: BIGINT (PK)
+   - `title`: VARCHAR(150) NOT NULL
+   - `slug`: VARCHAR(150) NOT NULL UNIQUE
+   - `tagline`: VARCHAR(255)
+   - `description`: TEXT NOT NULL
+   - `banner_url`: VARCHAR(255)
+   - `start_date`: DATETIME NOT NULL
+   - `end_date`: DATETIME NOT NULL
+   - `registration_deadline`: DATETIME NOT NULL
+   - `status`: ENUM (DRAFT, PUBLISHED, ACTIVE, EVALUATION, COMPLETED)
+   - `organizer`: ManyToOne -> `User.java`
+   - `created_at`, `updated_at`: DATETIME
+3. Entity Modification: `Team.java`:
+   - Add ManyToOne relationship: `hackathon`: `Hackathon.java` (Foreign Key `hackathon_id`).
+   - Refactor `teamLead` string into ManyToOne `teamLeadUser`: `User.java` (Foreign Key `team_lead_id`).
+4. New Entity: `Submission.java`:
+   - `id`: BIGINT (PK)
+   - `team`: OneToOne -> `Team.java` (Foreign Key `team_id`)
+   - `hackathon`: ManyToOne -> `Hackathon.java` (Foreign Key `hackathon_id`)
+   - `project_title`: VARCHAR(200) NOT NULL
+   - `summary`: TEXT NOT NULL
+   - `repo_url`: VARCHAR(255) NOT NULL (GitHub / GitLab link)
+   - `demo_url`: VARCHAR(255) (Live URL)
+   - `video_url`: VARCHAR(255) (YouTube / Loom link)
+   - `deck_url`: VARCHAR(255) (Slide deck link)
+   - `submitted_at`: DATETIME NOT NULL
+   - `status`: ENUM (SUBMITTED, UNDER_REVIEW, ACCEPTED, REJECTED)
+5. New Entity: `Evaluation.java`:
+   - `id`: BIGINT (PK)
+   - `submission`: ManyToOne -> `Submission.java`
+   - `judge`: ManyToOne -> `User.java`
+   - `innovation_score`: INT (1-10)
+   - `technical_score`: INT (1-10)
+   - `design_score`: INT (1-10)
+   - `feedback`: TEXT
+   - `evaluated_at`: DATETIME
+6. New Entity: `Announcement.java`:
+   - `id`: BIGINT (PK)
+   - `hackathon`: ManyToOne -> `Hackathon.java`
+   - `title`: VARCHAR(150) NOT NULL
+   - `content`: TEXT NOT NULL
+   - `priority`: ENUM (NORMAL, URGENT)
+   - `created_at`: DATETIME
+
+12.5 REQUIRED API ADDITIONS
+- Hackathons Controller (`/api/hackathons`):
+  - `GET /api/hackathons`: List published hackathons (Public / Authenticated).
+  - `GET /api/hackathons/{id}`: Detailed hackathon overview.
+  - `POST /api/hackathons`: Create hackathon (ORGANIZER, SUPER_ADMIN).
+  - `PUT /api/hackathons/{id}`: Update hackathon details (ORGANIZER, SUPER_ADMIN).
+  - `PATCH /api/hackathons/{id}/status`: Transition hackathon state (DRAFT -> PUBLISHED).
+- Submissions Controller (`/api/hackathons/{hackathonId}/submissions`):
+  - `POST /api/hackathons/{hackathonId}/submissions`: Submit final deliverables (TEAM).
+  - `GET /api/hackathons/{hackathonId}/submissions`: List submissions (ORGANIZER, SUPER_ADMIN).
+  - `GET /api/hackathons/{hackathonId}/submissions/my`: Get team's submission (TEAM).
+- Evaluations Controller (`/api/hackathons/{hackathonId}/evaluations`):
+  - `POST /api/hackathons/{hackathonId}/evaluations`: Submit score and feedback (ORGANIZER, SUPER_ADMIN).
+  - `GET /api/hackathons/{hackathonId}/evaluations/leaderboard`: Aggregate ranking (Public / Authenticated).
+- Super Admin Controller (`/api/superadmin`):
+  - `GET /api/superadmin/users`: Paginated user list with role filtering.
+  - `PATCH /api/superadmin/users/{id}/role`: Elevate or demote user roles.
+  - `GET /api/superadmin/telemetry`: Platform-wide metrics (total hackathons, teams, submissions).
+
+12.6 INTEGRATION RISKS AND SAFEGUARDS
+- Selenium Test Disruption: Changing route paths (`/teams` -> `/hackathons/:id/teams`) or altering element IDs (`#dashboard-page`) will break existing Selenium user journeys.
+  * Mitigation: Preserve backward-compatible locator aliases or systematically update Selenium page objects in lockstep.
+- Database Schema Desynchronization: Introducing new tables and altering `Role` enum values will cause conflicts with existing database rows.
+  * Mitigation: Introduce Flyway migration scripts (`V1__baseline.sql`, `V2__grid_entities.sql`) to manage data conversions deterministically.
+- Authentication Session Drift: Renaming roles (`ADMIN -> SUPER_ADMIN`, `TEAM_LEAD -> TEAM`) will invalidate active user sessions.
+  * Mitigation: Update `DataInitializer.java` to seed updated default accounts and test users cleanly.
+
+================================================================================
+SECTION 13 - RECOMMENDED PHASED IMPLEMENTATION PLAN
+================================================================================
+
+PHASE 1: GIT HYGIENE & REPOSITORY BASELINING
+- Step 1: Clean and commit or stash all 17 uncommitted files in the working tree.
+- Step 2: Fix corrupted blank lines in `UserJourneysTest.java`.
+- Step 3: Create a clean baseline Git branch `feature/grid-restructuring` off `develop`.
+- Dependencies: None.
+- Deliverable: Clean `git status`, passing baseline Maven build.
+
+PHASE 2: DESIGN SYSTEM & VISUAL IDENTITY FOUNDATION
+- Step 1: Overhaul `frontend/src/index.css` to implement the Apple-inspired black and neon-green glassmorphism design system.
+- Step 2: Configure CSS custom properties for neon green (`--accent-neon: #00FF66`), emerald glow (`--accent-glow: #10B981`), glass backdrops (`--bg-glass`), and translucent borders.
+- Step 3: Update common reusable widgets (`StatCard`, `StatusBadge`, `TrackBadge`, modals) to reflect the new visual tokens.
+- Dependencies: Phase 1.
+- Deliverable: Completed GRID CSS design system with glassmorphic UI components.
+
+PHASE 3: BACKEND DOMAIN MODEL & DATABASE MIGRATIONS
+- Step 1: Add Flyway migration dependency to `backend/pom.xml`.
+- Step 2: Create baseline schema migration `V1__init_schema.sql` and incremental migration `V2__grid_multi_hackathon_and_submissions.sql`.
+- Step 3: Create new entities (`Hackathon`, `Submission`, `Evaluation`, `Announcement`).
+- Step 4: Update `User` and `Role` enum (`SUPER_ADMIN`, `ORGANIZER`, `TEAM`).
+- Step 5: Update `Team` entity to establish foreign keys to `Hackathon` and `User`.
+- Dependencies: Phase 1.
+- Deliverable: Validated relational database schema with Flyway migrations and JPA entity tests.
+
+PHASE 4: BACKEND SERVICES, CONTROLLERS & RBAC SECURITY
+- Step 1: Implement repositories and transactional services for Hackathons, Submissions, and Evaluations.
+- Step 2: Implement REST controllers (`HackathonController`, `SubmissionController`, `SuperAdminController`).
+- Step 3: Update `SecurityConfig.java` with refined method security rules for `ROLE_SUPER_ADMIN`, `ROLE_ORGANIZER`, and `ROLE_TEAM`.
+- Step 4: Update `DataInitializer.java` to bootstrap GRID demo accounts and sample hackathons.
+- Dependencies: Phase 3.
+- Deliverable: Passing Spring Boot MockMvc integration test suite covering all new endpoints.
+
+PHASE 5: FRONTEND ARCHITECTURE & ROUTING OVERHAUL
+- Step 1: Update `apiClient.js` and implement new service modules (`hackathonService.js`, `submissionService.js`, `superAdminService.js`).
+- Step 2: Update `AuthContext.jsx` with helper flags (`isSuperAdmin`, `isOrganizer`, `isTeam`).
+- Step 3: Update `App.jsx` with new route hierarchy:
+  - `/hackathons` (Browse and discover hackathons)
+  - `/hackathons/:id` (Hackathon details and tracks)
+  - `/hackathons/:id/register` (Team registration flow)
+  - `/hackathons/:id/submit` (Deliverable submission flow)
+  - `/admin/*` (Super Admin governance)
+- Step 4: Re-architect `Sidebar.jsx` and `Navbar.jsx` with neon-green aesthetic and GRID branding.
+- Dependencies: Phases 2 & 4.
+- Deliverable: Fully routed React SPA skeleton with role-protected layouts.
+
+PHASE 6: ROLE-SPECIFIC UI IMPLEMENTATION
+- Step 1: Implement `TeamDashboard.jsx`: Active project overview, team roster widget, submission deadline countdown, and deliverable submission modal.
+- Step 2: Implement `OrganizerDashboard.jsx`: Hackathon creator wizard, registration review table, submission grading interface, and announcement broadcaster.
+- Step 3: Implement `SuperAdminDashboard.jsx`: Platform-wide telemetry, user management table, organizer approval queue, and system health status.
+- Step 4: Implement Hackathon Discovery page (`HackathonCatalog.jsx`) with search and filter cards.
+- Dependencies: Phase 5.
+- Deliverable: Complete frontend screens matching GRID Apple-style glassmorphism.
+
+PHASE 7: AUTOMATED TEST SUITE REALIGNMENT
+- Step 1: Update JUnit 5 and MockMvc integration tests in `backend/` for new endpoints.
+- Step 2: Configure Vitest and React Testing Library in `frontend/` for component testing.
+- Step 3: Update Selenium 5 Critical User Journeys in `selenium-tests/`:
+  - Journey 1: Multi-role authentication (Team, Organizer, Super Admin).
+  - Journey 2: Hackathon creation and publishing.
+  - Journey 3: Team registration to published hackathon.
+  - Journey 4: Deliverable submission (repo URL, demo URL).
+  - Journey 5: Organizer evaluation and status transition.
+- Dependencies: Phase 6.
+- Deliverable: 100% green test suite across JUnit, MockMvc, and Selenium.
+
+PHASE 8: DOCKER & CONTAINERIZATION REALIGNMENT
+- Step 1: Verify `Dockerfile` builds with new dependencies and Flyway migrations.
+- Step 2: Verify `deployment/nginx/Dockerfile` compiles updated React Vite assets.
+- Step 3: Update `docker-compose.yml` environment configurations and volume mounts.
+- Step 4: Execute `docker compose up --build -d` and assert healthy status across `hackathon_mysql`, `hackathon_backend`, and `hackathon_frontend`.
+- Dependencies: Phases 4 & 6.
+- Deliverable: Verified 3-tier container stack running cleanly on host port 8081.
+
+PHASE 9: JENKINS CI/CD VERIFICATION
+- Step 1: Update `Jenkinsfile` parameters and build stages for GRID test execution.
+- Step 2: Trigger automated build on Jenkins controller (`http://localhost:8080`).
+- Step 3: Confirm successful compilation, test report generation, image packaging, and health probing.
+- Dependencies: Phases 7 & 8.
+- Deliverable: Successful green Jenkins build run with published test artifacts.
+
+PHASE 10: ANSIBLE PROVISIONING & FINAL DEMONSTRATION VERIFICATION
+- Step 1: Update Ansible templates (`env.j2`, `default.conf.j2`) and playbooks.
+- Step 2: Run `ansible-playbook -i ansible/inventory.ini ansible/playbook.yml --syntax-check`.
+- Step 3: Execute deployment on target environment and verify health check actuator.
+- Step 4: Final end-to-end smoke test validating all user workflows across all 3 roles.
+- Dependencies: Phase 9.
+- Deliverable: Production-ready GRID Hackathon Management Platform.
+
+================================================================================
+END OF AUDIT REPORT
+================================================================================
+

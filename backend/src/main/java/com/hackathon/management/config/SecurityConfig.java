@@ -42,15 +42,19 @@ public class SecurityConfig {
             .headers(headers -> headers.frameOptions(frame -> frame.sameOrigin())) // For H2 console
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
             .authorizeHttpRequests(auth -> auth
-                // Public endpoints
-                .requestMatchers("/api/auth/login", "/api/auth/logout").permitAll()
+                // Public auth endpoints
+                .requestMatchers("/api/auth/register", "/api/auth/login", "/api/auth/logout").permitAll()
+                // Public discovery endpoints
+                .requestMatchers(HttpMethod.GET, "/api/hackathons", "/api/hackathons/published", "/api/hackathons/*").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/announcements/hackathon/*").permitAll()
+                // Public dev & observability endpoints
                 .requestMatchers("/actuator/health", "/actuator/info").permitAll()
                 .requestMatchers("/h2-console/**").permitAll()
                 .requestMatchers("/error").permitAll()
-                // Role-restricted team operations
-                .requestMatchers(HttpMethod.DELETE, "/api/teams/**").hasRole("ADMIN")
-                .requestMatchers(HttpMethod.POST, "/api/teams").hasAnyRole("ADMIN", "ORGANIZER", "TEAM_LEAD")
-                .requestMatchers(HttpMethod.PATCH, "/api/teams/*/status").hasAnyRole("ADMIN", "ORGANIZER", "TEAM_LEAD")
+                // Role-restricted endpoints (also verified by @PreAuthorize on controllers)
+                .requestMatchers("/api/dashboard/admin").hasAnyRole("SUPER_ADMIN", "ADMIN")
+                .requestMatchers("/api/dashboard/organizer").hasAnyRole("ORGANIZER", "SUPER_ADMIN", "ADMIN")
+                .requestMatchers("/api/dashboard/team").hasAnyRole("TEAM", "TEAM_LEAD", "SUPER_ADMIN", "ADMIN")
                 // All other API endpoints require authentication
                 .requestMatchers("/api/**").authenticated()
                 .anyRequest().permitAll()

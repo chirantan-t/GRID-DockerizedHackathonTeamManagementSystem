@@ -17,14 +17,14 @@ export const TeamForm = () => {
   const { id } = useParams();
   const isEdit = Boolean(id);
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, isLead } = useAuth();
 
   const [formData, setFormData] = useState({
     teamName: '',
     teamCode: '',
     projectTitle: '',
     projectDescription: '',
-    teamLead: user?.username || '',
+    teamLead: isLead ? (user?.username || '') : (user?.username || ''),
     track: 'AI_ML'
   });
 
@@ -94,9 +94,9 @@ export const TeamForm = () => {
   return (
     <div className="page-wrapper" id="team-form-page" style={{ maxWidth: '800px' }}>
       <div style={{ marginBottom: '1.5rem' }}>
-        <Link to="/teams" className="btn btn-secondary btn-sm" id="form-back-btn">
+        <Link to={isLead ? "/" : (isEdit ? `/teams/${id}` : "/teams")} className="btn btn-secondary btn-sm" id="form-back-btn">
           <ArrowLeft size={16} />
-          <span>Back to Teams</span>
+          <span>{isLead ? 'Back to Dashboard' : 'Back to Teams'}</span>
         </Link>
       </div>
 
@@ -194,10 +194,17 @@ export const TeamForm = () => {
                 className="form-control"
                 type="text"
                 placeholder="e.g. alex_rivera"
-                value={formData.teamLead}
+                value={isLead ? (user?.username || formData.teamLead) : formData.teamLead}
+                readOnly={isLead}
+                style={isLead ? { backgroundColor: 'var(--bg-secondary)', cursor: 'not-allowed' } : {}}
                 onChange={(e) => setFormData({ ...formData, teamLead: e.target.value })}
                 required
               />
+              {isLead && (
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem', display: 'block' }}>
+                  Locked to your authenticated username ({user?.username})
+                </span>
+              )}
             </div>
 
             <div className="form-group">

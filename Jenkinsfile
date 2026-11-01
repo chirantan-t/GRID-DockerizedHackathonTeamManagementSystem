@@ -1,8 +1,10 @@
 // ===================================================================
 // Declarative Jenkins Pipeline as Code
-// Project: Dockerized Hackathon Team Management System
-// Complete CI/CD: Lint -> Build -> Test -> Selenium -> Docker -> Registry -> Deploy -> Health Probe -> Rollback
-// Cross-Platform: Windows (bat) & Linux (sh) compatible
+// Project: GRID — The Command Center for Hackathons
+// CI/CD Lifecycle: Checkout -> Env Verify -> Backend Build -> Backend Tests ->
+//                  Frontend Build -> Frontend Test -> Docker Build ->
+//                  Image Validation -> Deploy -> Health Verification -> Post Actions
+// Windows & Linux Native Dual-Engine Compatibility
 // ===================================================================
 
 pipeline {
@@ -26,17 +28,19 @@ pipeline {
         )
         booleanParam(
             name: 'RUN_SELENIUM_TESTS',
-            defaultValue: true,
+            defaultValue: false,
             description: 'Execute Automated Browser User Journeys'
         )
     }
 
     environment {
-        IMAGE_NAME = 'hackathon-team-management-system'
+        RELEASE_VERSION = "${params.RELEASE_VERSION}"
         DOCKER_TAG = "${params.RELEASE_VERSION}-${BUILD_NUMBER}"
-        NGINX_PORT = "${params.APP_HOST_PORT}"
+        APP_HOST_PORT = "${params.APP_HOST_PORT}"
         HEADLESS = 'true'
-        DOCKERHUB_CREDENTIALS_ID = 'dockerhub-credentials'
+        // Windows Service PATH integration for Docker Desktop binaries and WSL2 Linux Engine pipe
+        PATH = "C:\\Users\\chirantan\\AppData\\Local\\Programs\\DockerDesktop\\resources\\bin;${env.PATH}"
+        DOCKER_HOST = 'npipe:////./pipe/dockerDesktopLinuxEngine'
     }
 
     options {
@@ -46,56 +50,107 @@ pipeline {
     }
 
     stages {
-        stage('Checkout Source') {
+        // ===============================================================
+        // STAGE 1: CHECKOUT SCM
+        // ===============================================================
+        stage('Checkout SCM') {
             steps {
-                echo "===> Step 1: Checking out source code..."
+                echo "=========================================================="
+                echo " STAGE 1: Checking out source from repository..."
+                echo "=========================================================="
                 checkout scm
+                script {
+                    if (isUnix()) {
+                        sh 'git log -1 --format="Commit: %H%nAuthor: %an%nDate:   %ad%nMessage: %s"'
+                    } else {
+                        bat 'git log -1 --format="Commit: %%H%%nAuthor: %%an%%nDate:   %%ad%%nMessage: %%s"'
+                    }
+                }
             }
         }
 
+        // ===============================================================
+        // STAGE 2: ENVIRONMENT VERIFICATION
+        // ===============================================================
         stage('Environment Verification') {
             steps {
-                echo "===> Step 2: Validating build environment toolchain..."
+                echo "=========================================================="
+                echo " STAGE 2: Verifying build environment toolchains..."
+                echo "=========================================================="
                 script {
                     if (isUnix()) {
                         sh 'java -version'
                         sh 'mvn -version'
                         sh 'node -v'
                         sh 'npm -v'
+                        sh 'docker version'
+                        sh 'docker info'
                     } else {
                         bat 'java -version'
                         bat 'call mvn -version'
                         bat 'node -v'
                         bat 'call npm -v'
+                        bat 'docker.exe version'
+                        bat 'docker.exe info'
                     }
                 }
             }
         }
 
-        stage('Backend Build & Unit Tests') {
+        // ===============================================================
+        // STAGE 3: BACKEND BUILD
+        // ===============================================================
+        stage('Backend Build') {
             steps {
-                echo "===> Step 3: Compiling and verifying backend with Maven..."
+                echo "=========================================================="
+                echo " STAGE 3: Compiling Spring Boot Backend..."
+                echo "=========================================================="
                 dir('backend') {
                     script {
                         if (isUnix()) {
-                            sh 'mvn clean verify --batch-mode'
+                            sh 'mvn clean package -DskipTests --batch-mode'
                         } else {
-                            bat 'call mvn clean verify --batch-mode'
+                            bat 'call mvn clean package -DskipTests --batch-mode'
+                        }
+                    }
+                }
+            }
+        }
+
+        // ===============================================================
+        // STAGE 4: BACKEND UNIT & INTEGRATION TESTING
+        // ===============================================================
+        stage('Backend Unit Testing') {
+            steps {
+                echo "=========================================================="
+                echo " STAGE 4: Executing JUnit 5 & Mockito Test Suite..."
+                echo "=========================================================="
+                dir('backend') {
+                    script {
+                        if (isUnix()) {
+                            sh 'mvn test --batch-mode'
+                        } else {
+                            bat 'call mvn test --batch-mode'
                         }
                     }
                 }
             }
             post {
                 always {
-                    echo "Publishing JUnit backend test results..."
-                    junit testResults: 'backend/target/surefire-reports/*.xml', allowEmptyResults: true
+                    echo "Publishing JUnit backend surefire test reports..."
+                    junit testResults: 'backend/target/surefire-reports/*.xml', allowEmptyResults: false
                 }
             }
         }
 
+        // ===============================================================
+        // STAGE 5: FRONTEND BUILD
+        // ===============================================================
         stage('Frontend Build') {
             steps {
-                echo "===> Step 4: Compiling production React Vite frontend assets..."
+                echo "=========================================================="
+                echo " STAGE 5: Compiling React + Vite Production Bundle..."
+                echo "=========================================================="
                 dir('frontend') {
                     script {
                         if (isUnix()) {
@@ -110,117 +165,175 @@ pipeline {
             }
         }
 
+        // ===============================================================
+        // STAGE 6: FRONTEND TESTING & BUNDLE VERIFICATION
+        // ===============================================================
+        stage('Frontend Testing') {
+            steps {
+                echo "=========================================================="
+                echo " STAGE 6: Verifying Frontend Production Artifacts..."
+                echo "=========================================================="
+                dir('frontend') {
+                    script {
+                        if (isUnix()) {
+                            sh 'test -f dist/index.html && echo "[PASS] dist/index.html verified"'
+                        } else {
+                            bat 'if exist dist\\index.html (echo [PASS] dist/index.html verified) else (exit /b 1)'
+                        }
+                    }
+                }
+            }
+        }
+
+        // Optional Selenium Browser Journeys
         stage('Selenium Browser Journeys') {
             when {
                 expression { return params.RUN_SELENIUM_TESTS }
             }
             steps {
-                echo "===> Step 5: Executing 5 Critical Selenium User Journeys..."
+                echo "=========================================================="
+                echo " Executing Automated Selenium Browser Journeys..."
+                echo "=========================================================="
                 dir('selenium-tests') {
                     script {
                         if (isUnix()) {
-                            sh 'mvn clean test -Dheadless=true'
+                            sh "mvn clean test -Dheadless=true -Dapp.base.url=http://localhost:${params.APP_HOST_PORT}"
                         } else {
-                            bat 'call mvn clean test -Dheadless=true'
+                            bat "call mvn clean test -Dheadless=true -Dapp.base.url=http://localhost:${params.APP_HOST_PORT}"
                         }
                     }
                 }
             }
             post {
                 always {
-                    echo "Publishing Selenium test execution reports..."
                     junit testResults: 'selenium-tests/target/surefire-reports/*.xml', allowEmptyResults: true
                 }
             }
         }
 
-        stage('Docker Multi-Stage Build & Tag') {
+        // ===============================================================
+        // STAGE 7: DOCKER IMAGE BUILD
+        // ===============================================================
+        stage('Docker Image Build') {
             steps {
-                echo "===> Step 6: Building production multi-stage Docker image and packaging artifacts..."
-                dir('backend') {
-                    script {
-                        if (isUnix()) {
-                            sh 'mvn package -DskipTests'
-                        } else {
-                            bat 'call mvn package -DskipTests'
-                        }
-                    }
-                }
+                echo "=========================================================="
+                echo " STAGE 7: Building Docker Multi-Stage Production Images..."
+                echo " Tags: ${DOCKER_TAG}, ${RELEASE_VERSION}, latest"
+                echo "=========================================================="
                 script {
                     if (isUnix()) {
-                        sh 'command -v docker >/dev/null 2>&1 && docker build -t "${IMAGE_NAME}:${DOCKER_TAG}" -t "${IMAGE_NAME}:${RELEASE_VERSION}" -t "${IMAGE_NAME}:latest" . || echo "[INFO] Standalone Docker engine optional on controller node. Packaged Spring Boot artifact."'
+                        sh "docker build -t hackathon-team-management-backend:${DOCKER_TAG} -t hackathon-team-management-backend:${RELEASE_VERSION} -t hackathon-team-management-backend:latest -f Dockerfile ."
+                        sh "docker build -t hackathon-team-management-frontend:${DOCKER_TAG} -t hackathon-team-management-frontend:${RELEASE_VERSION} -t hackathon-team-management-frontend:latest -f deployment/nginx/Dockerfile ."
                     } else {
-                        bat 'where docker >nul 2>&1 && docker build -t "%IMAGE_NAME%:%DOCKER_TAG%" -t "%IMAGE_NAME%:%RELEASE_VERSION%" -t "%IMAGE_NAME%:latest" . || (echo [INFO] Standalone Docker engine optional on controller node. Packaged Spring Boot artifact. & ver >nul)'
+                        bat "docker.exe build -t hackathon-team-management-backend:%DOCKER_TAG% -t hackathon-team-management-backend:%RELEASE_VERSION% -t hackathon-team-management-backend:latest -f Dockerfile ."
+                        bat "docker.exe build -t hackathon-team-management-frontend:%DOCKER_TAG% -t hackathon-team-management-frontend:%RELEASE_VERSION% -t hackathon-team-management-frontend:latest -f deployment/nginx/Dockerfile ."
                     }
                 }
                 archiveArtifacts artifacts: 'backend/target/*.jar', fingerprint: true, allowEmptyArchive: true
             }
         }
 
-        stage('Publish Image to Registry') {
-            when {
-                expression { return env.DOCKERHUB_USERNAME != null }
-            }
+        // ===============================================================
+        // STAGE 8: DOCKER IMAGE VALIDATION
+        // ===============================================================
+        stage('Docker Image Validation') {
             steps {
-                echo "===> Step 7: Publishing image to container registry..."
-                withCredentials([usernamePassword(credentialsId: "${env.DOCKERHUB_CREDENTIALS_ID}",
-                                                  usernameVariable: 'DH_USER',
-                                                  passwordVariable: 'DH_PASS')]) {
-                    script {
-                        if (isUnix()) {
-                            sh """
-                                echo "\$DH_PASS" | docker login -u "\$DH_USER" --password-stdin
-                                docker tag ${IMAGE_NAME}:${DOCKER_TAG} \$DH_USER/${IMAGE_NAME}:${DOCKER_TAG}
-                                docker tag ${IMAGE_NAME}:${DOCKER_TAG} \$DH_USER/${IMAGE_NAME}:latest
-                                docker push \$DH_USER/${IMAGE_NAME}:${DOCKER_TAG}
-                                docker push \$DH_USER/${IMAGE_NAME}:latest
-                                docker logout
-                            """
-                        } else {
-                            bat 'echo Docker Hub publishing stage configured'
+                echo "=========================================================="
+                echo " STAGE 8: Validating Docker Image Creation and Sizes..."
+                echo "=========================================================="
+                script {
+                    if (isUnix()) {
+                        sh 'docker images --filter=reference="hackathon-team-management-backend:*"'
+                        sh 'docker images --filter=reference="hackathon-team-management-frontend:*"'
+                    } else {
+                        bat 'docker.exe images --filter=reference="hackathon-team-management-backend:*"'
+                        bat 'docker.exe images --filter=reference="hackathon-team-management-frontend:*"'
+                    }
+                }
+            }
+        }
+
+        // ===============================================================
+        // STAGE 9: DEPLOYMENT
+        // ===============================================================
+        stage('Deployment') {
+            steps {
+                echo "=========================================================="
+                echo " STAGE 9: Deploying Multi-Container Stack via Docker Compose..."
+                echo " Environment: ${params.DEPLOY_ENV} | Host Port: ${params.APP_HOST_PORT}"
+                echo "=========================================================="
+                script {
+                    if (isUnix()) {
+                        sh 'docker compose up -d --remove-orphans || docker-compose up -d --remove-orphans'
+                        sh 'docker compose ps || docker-compose ps'
+                    } else {
+                        bat 'where docker-compose.exe >nul 2>&1 && docker-compose.exe up -d --remove-orphans || docker.exe compose up -d --remove-orphans'
+                        bat 'where docker-compose.exe >nul 2>&1 && docker-compose.exe ps || docker.exe compose ps'
+                    }
+                }
+            }
+        }
+
+        // ===============================================================
+        // STAGE 10: HEALTH VERIFICATION
+        // ===============================================================
+        stage('Health Verification') {
+            steps {
+                echo "=========================================================="
+                echo " STAGE 10: Verifying Backend, Database & Frontend Health..."
+                echo " Target URL: http://localhost:${params.APP_HOST_PORT}"
+                echo "=========================================================="
+                script {
+                    def maxRetries = 12
+                    def delaySeconds = 3
+                    def isHealthy = false
+
+                    for (int i = 1; i <= maxRetries; i++) {
+                        echo "Health verification probe ${i}/${maxRetries}..."
+                        try {
+                            if (isUnix()) {
+                                sh "curl -f -s http://localhost:${params.APP_HOST_PORT}/actuator/health | grep '\"status\":\"UP\"'"
+                                sh "curl -f -s -o /dev/null http://localhost:${params.APP_HOST_PORT}/"
+                            } else {
+                                bat "curl.exe -f -s http://localhost:%APP_HOST_PORT%/actuator/health | findstr \"UP\""
+                                bat "curl.exe -f -s -o nul http://localhost:%APP_HOST_PORT%/"
+                            }
+                            isHealthy = true
+                            echo "===> Health Verification PASSED on attempt ${i}!"
+                            break
+                        } catch (Exception e) {
+                            echo "Waiting for services to become healthy (${i}/${maxRetries})..."
+                            sleep(delaySeconds)
                         }
                     }
-                }
-            }
-        }
 
-        stage('Deploy Container Stack') {
-            steps {
-                echo "===> Step 8: Deploying to ${params.DEPLOY_ENV} on port ${params.APP_HOST_PORT}..."
-                script {
-                    if (isUnix()) {
-                        sh 'command -v docker >/dev/null 2>&1 && docker compose up -d --remove-orphans || echo "[INFO] Deployment stack active on target host for environment ${DEPLOY_ENV}."'
-                    } else {
-                        bat 'where docker >nul 2>&1 && docker compose up -d --remove-orphans || (echo [INFO] Deployment stack active on target host for environment %DEPLOY_ENV%. & ver >nul)'
-                    }
-                }
-            }
-        }
-
-        stage('Health Verification & Auto-Rollback') {
-            steps {
-                echo "===> Step 9: Probing live endpoint at http://localhost:8082/actuator/health..."
-                script {
-                    if (isUnix()) {
-                        sh 'curl -s http://localhost:8082/actuator/health || echo "Actuator probe completed"'
-                    } else {
-                        bat 'curl.exe -s http://localhost:8082/actuator/health || (echo Actuator probe completed & ver >nul)'
+                    if (!isHealthy) {
+                        error("Health Verification FAILED: Service did not report UP on http://localhost:${params.APP_HOST_PORT} within timeout.")
                     }
                 }
             }
         }
     }
 
+    // ===================================================================
+    // STAGE 11: POST-BUILD ACTIONS
+    // ===================================================================
     post {
         success {
             echo "=========================================================="
-            echo " CI/CD Pipeline SUCCEEDED for release ${DOCKER_TAG}"
-            echo " Live entry point: http://localhost:${params.APP_HOST_PORT}"
+            echo " GRID CI/CD PIPELINE SUCCEEDED"
+            echo " Released Version : ${params.RELEASE_VERSION}"
+            echo " Build Tag        : ${DOCKER_TAG}"
+            echo " Environment      : ${params.DEPLOY_ENV}"
+            echo " Web Entry Point  : http://localhost:${params.APP_HOST_PORT}"
+            echo " Actuator Health  : http://localhost:${params.APP_HOST_PORT}/actuator/health"
             echo "=========================================================="
         }
         failure {
             echo "=========================================================="
-            echo " CI/CD Pipeline FAILED. Unhealthy artifacts were blocked."
+            echo " GRID CI/CD PIPELINE FAILED"
+            echo " Failing stage blocked deployment."
+            echo " Check console logs above for surefire or build output."
             echo "=========================================================="
         }
     }

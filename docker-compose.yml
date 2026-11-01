@@ -1,29 +1,30 @@
 services:
   # ===================================================================
-  # 1. MySQL 8.x Database Tier
+  # 1. MySQL 8.x Database Tier (InnoDB, utf8mb4, persistent volume)
   # ===================================================================
   db:
     image: mysql:8.0
     container_name: hackathon_mysql
     restart: unless-stopped
+    command: --default-authentication-plugin=mysql_native_password --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
     environment:
-      MYSQL_DATABASE: ${MYSQL_DATABASE:-hackathondb}
-      MYSQL_USER: ${MYSQL_USER:-hackathon_user}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-hackathon_pass}
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root_pass}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-grid_db}
+      MYSQL_USER: ${MYSQL_USER:-grid_user}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-grid_pass}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-grid_root_pass}
     volumes:
       - mysql_data:/var/lib/mysql
     networks:
       - hackathon_net
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p$${MYSQL_ROOT_PASSWORD}"]
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -u root -p$${MYSQL_ROOT_PASSWORD}"]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 20s
 
   # ===================================================================
-  # 2. Spring Boot 3.x Backend Tier
+  # 2. Spring Boot 3.x Backend Tier (Flyway Enabled, Hibernate Validate)
   # ===================================================================
   backend:
     build:
@@ -38,10 +39,16 @@ services:
     environment:
       SERVER_PORT: 8080
       SPRING_PROFILES_ACTIVE: mysql
-      SPRING_DATASOURCE_URL: jdbc:mysql://db:3306/${MYSQL_DATABASE:-hackathondb}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC&createDatabaseIfNotExist=true
-      SPRING_DATASOURCE_USERNAME: ${MYSQL_USER:-hackathon_user}
-      SPRING_DATASOURCE_PASSWORD: ${MYSQL_PASSWORD:-hackathon_pass}
-      APP_BOOTSTRAP_SEED_DATA: ${APP_BOOTSTRAP_SEED_DATA:-true}
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_NAME: ${MYSQL_DATABASE:-grid_db}
+      DB_USERNAME: ${MYSQL_USER:-grid_user}
+      DB_PASSWORD: ${MYSQL_PASSWORD:-grid_pass}
+      SPRING_DATASOURCE_URL: jdbc:mysql://db:3306/${MYSQL_DATABASE:-grid_db}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC&createDatabaseIfNotExist=true&characterEncoding=UTF-8
+      SPRING_DATASOURCE_USERNAME: ${MYSQL_USER:-grid_user}
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_PASSWORD:-grid_pass}
+      SPRING_FLYWAY_ENABLED: "true"
+      SPRING_JPA_HIBERNATE_DDL_AUTO: validate
     networks:
       - hackathon_net
     healthcheck:
@@ -69,7 +76,7 @@ services:
     networks:
       - hackathon_net
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:80/"]
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:80/"]
       interval: 15s
       timeout: 3s
       retries: 3

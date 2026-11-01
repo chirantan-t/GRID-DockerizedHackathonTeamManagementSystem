@@ -7,12 +7,11 @@
 FROM maven:3.9.6-eclipse-temurin-21-alpine AS backend-builder
 WORKDIR /build
 
-# Cache Maven dependencies
+# Copy Maven POM and project sources
 COPY backend/pom.xml .
-RUN mvn dependency:go-offline -B
-
-# Compile and package application jar
 COPY backend/src ./src
+
+# Compile and package production application jar
 RUN mvn clean package -DskipTests -B
 
 # Stage 2: Minimal Production Runtime
@@ -26,7 +25,7 @@ RUN apk add --no-cache curl tzdata
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 
 # Copy compiled jar from builder stage
-COPY --from=backend-builder /build/target/hackathon-team-management-backend-1.0.0.jar /app/app.jar
+COPY --from=backend-builder /build/target/*.jar /app/app.jar
 
 # Set proper ownership
 RUN chown -R appuser:appgroup /app

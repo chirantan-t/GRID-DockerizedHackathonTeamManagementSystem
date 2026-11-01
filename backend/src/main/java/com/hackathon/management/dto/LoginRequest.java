@@ -1,13 +1,9 @@
 package com.hackathon.management.dto;
 
-import jakarta.validation.constraints.NotBlank;
-
 public class LoginRequest {
 
-    @NotBlank(message = "Username is required")
     private String username;
-
-    @NotBlank(message = "Password is required")
+    private String email;
     private String password;
 
     public LoginRequest() {
@@ -19,11 +15,25 @@ public class LoginRequest {
     }
 
     public String getUsername() {
-        return username;
+        if (username != null && !username.isBlank()) {
+            return username;
+        }
+        return email;
     }
 
     public void setUsername(String username) {
         this.username = username;
+    }
+
+    public String getEmail() {
+        return email != null ? email : username;
+    }
+
+    public void setEmail(String email) {
+        this.email = email;
+        if (this.username == null || this.username.isBlank()) {
+            this.username = email;
+        }
     }
 
     public String getPassword() {

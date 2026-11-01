@@ -8,6 +8,9 @@ import com.hackathon.management.exception.DuplicateResourceException;
 import com.hackathon.management.exception.ResourceNotFoundException;
 import com.hackathon.management.repository.TeamMemberRepository;
 import com.hackathon.management.repository.TeamRepository;
+import com.hackathon.management.exception.UnauthorizedActionException;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,17 +23,22 @@ public class TeamMemberService {
 
     private final TeamMemberRepository memberRepository;
     private final TeamRepository teamRepository;
+    private final com.hackathon.management.repository.UserRepository userRepository;
 
-    public TeamMemberService(TeamMemberRepository memberRepository, TeamRepository teamRepository) {
+    public TeamMemberService(TeamMemberRepository memberRepository,
+                             TeamRepository teamRepository,
+                             com.hackathon.management.repository.UserRepository userRepository) {
         this.memberRepository = memberRepository;
         this.teamRepository = teamRepository;
+        this.userRepository = userRepository;
     }
 
     @Transactional(readOnly = true)
     public List<TeamMemberDto> getMembersByTeamId(Long teamId) {
-        if (!teamRepository.existsById(teamId)) {
-            throw new ResourceNotFoundException("Team not found with ID: " + teamId);
-        }
+        Team team = teamRepository.findById(teamId)
+                .orElseThrow(() -> new ResourceNotFoundException("Team not found with ID: " + teamId));
+        validateTeamLeadAccess(team);
+
         return memberRepository.findByTeamId(teamId).stream()
                 .map(this::convertToDto)
                 .collect(Collectors.toList());
@@ -39,11 +47,24 @@ public class TeamMemberService {
     public TeamMemberDto addMember(Long teamId, TeamMemberRequest request) {
         Team team = teamRepository.findById(teamId)
                 .orElseThrow(() -> new ResourceNotFoundException("Team not found with ID: " + teamId));
+        validateTeamLeadAccess(team);
 
         String email = request.getEmail().trim().toLowerCase();
-        if (memberRepository.existsByTeamIdAndEmail(teamId, email)) {
+        boolean alreadyEnrolled = memberRepository.findByTeamId(teamId).stream()
+                .anyMatch(m -> email.equalsIgnoreCase(m.getEmail()));
+        if (alreadyEnrolled) {
             throw new DuplicateResourceException("Member with email '" + email + "' is already enrolled in this team");
         }
+
+        com.hackathon.management.entity.User memberUser = userRepository.findByEmail(email)
+                .orElseGet(() -> {
+                    com.hackathon.management.entity.User newUser = new com.hackathon.management.entity.User();
+                    newUser.setFullName(request.getFullName().trim());
+                    newUser.setEmail(email);
+                    newUser.setPasswordHash("$2a$10$BjQ8IRnzrVWHBZ/xvWatsODgZHdMv5KVfbA.YO2rcHkCJFfXaWpFO");
+                    newUser.setIsActive(true);
+                    return userRepository.save(newUser);
+                });
 
         TeamMember member = new TeamMember(
                 request.getFullName().trim(),
@@ -52,15 +73,17 @@ public class TeamMemberService {
                 request.getDepartment().trim(),
                 request.getTeamRole()
         );
+        member.setUser(memberUser);
         member.setTeam(team);
         TeamMember saved = memberRepository.save(member);
         return convertToDto(saved);
     }
 
     public TeamMemberDto updateMember(Long teamId, Long memberId, TeamMemberRequest request) {
-        if (!teamRepository.existsById(teamId)) {
-            throw new ResourceNotFoundException("Team not found with ID: " + teamId);
-        }
+        Team team = teamRepository.findById(teamId)
+                .orElseThrow(() -> new ResourceNotFoundException("Team not found with ID: " + teamId));
+        validateTeamLeadAccess(team);
+
         TeamMember member = memberRepository.findById(memberId)
                 .orElseThrow(() -> new ResourceNotFoundException("Member not found with ID: " + memberId));
 
@@ -69,7 +92,9 @@ public class TeamMemberService {
         }
 
         String email = request.getEmail().trim().toLowerCase();
-        if (!member.getEmail().equalsIgnoreCase(email) && memberRepository.existsByTeamIdAndEmail(teamId, email)) {
+        boolean emailTaken = memberRepository.findByTeamId(teamId).stream()
+                .anyMatch(m -> !m.getId().equals(memberId) && email.equalsIgnoreCase(m.getEmail()));
+        if (emailTaken) {
             throw new DuplicateResourceException("Member with email '" + email + "' is already enrolled in this team");
         }
 
@@ -84,9 +109,10 @@ public class TeamMemberService {
     }
 
     public void deleteMember(Long teamId, Long memberId) {
-        if (!teamRepository.existsById(teamId)) {
-            throw new ResourceNotFoundException("Team not found with ID: " + teamId);
-        }
+        Team team = teamRepository.findById(teamId)
+                .orElseThrow(() -> new ResourceNotFoundException("Team not found with ID: " + teamId));
+        validateTeamLeadAccess(team);
+
         TeamMember member = memberRepository.findById(memberId)
                 .orElseThrow(() -> new ResourceNotFoundException("Member not found with ID: " + memberId));
 
@@ -95,6 +121,21 @@ public class TeamMemberService {
         }
 
         memberRepository.delete(member);
+    }
+
+    private void validateTeamLeadAccess(Team team) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null) {
+            return;
+        }
+        boolean isLeadOnly = auth.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_TEAM_LEAD") || a.getAuthority().equals("ROLE_TEAM")) &&
+                auth.getAuthorities().stream()
+                .noneMatch(a -> a.getAuthority().equals("ROLE_ADMIN") || a.getAuthority().equals("ROLE_SUPER_ADMIN") || a.getAuthority().equals("ROLE_ORGANIZER"));
+
+        if (isLeadOnly && !auth.getName().equalsIgnoreCase(team.getTeamLead())) {
+            throw new UnauthorizedActionException("You are only permitted to manage members of your own team: " + team.getTeamLead());
+        }
     }
 
     private TeamMemberDto convertToDto(TeamMember member) {

@@ -1,12 +1,15 @@
 package com.hackathon.management.controller;
 
+import com.hackathon.management.dto.ApiResponse;
 import com.hackathon.management.dto.AuthResponse;
 import com.hackathon.management.dto.LoginRequest;
-import com.hackathon.management.dto.UserSummaryDto;
+import com.hackathon.management.dto.RegisterRequest;
+import com.hackathon.management.dto.UserResponseDto;
 import com.hackathon.management.service.AuthService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -20,6 +23,13 @@ public class AuthController {
 
     public AuthController(AuthService authService) {
         this.authService = authService;
+    }
+
+    @PostMapping("/register")
+    public ResponseEntity<ApiResponse<UserResponseDto>> register(@Valid @RequestBody RegisterRequest request) {
+        UserResponseDto user = authService.register(request);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success("User registered successfully", user));
     }
 
     @PostMapping("/login")
@@ -37,8 +47,8 @@ public class AuthController {
     }
 
     @GetMapping("/me")
-    public ResponseEntity<UserSummaryDto> getCurrentUser() {
-        UserSummaryDto user = authService.getCurrentUser();
+    public ResponseEntity<UserResponseDto> getCurrentUser() {
+        UserResponseDto user = authService.getMe();
         return ResponseEntity.ok(user);
     }
 }

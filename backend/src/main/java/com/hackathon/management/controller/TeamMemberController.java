@@ -28,14 +28,14 @@ public class TeamMemberController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'ORGANIZER', 'TEAM_LEAD')")
+    @PreAuthorize("hasAnyRole('TEAM', 'TEAM_LEAD', 'ORGANIZER', 'ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<TeamMemberDto> addTeamMember(@PathVariable Long id, @Valid @RequestBody TeamMemberRequest request) {
         TeamMemberDto created = memberService.addMember(id, request);
         return new ResponseEntity<>(created, HttpStatus.CREATED);
     }
 
     @PutMapping("/{memberId}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'ORGANIZER', 'TEAM_LEAD')")
+    @PreAuthorize("hasAnyRole('TEAM', 'TEAM_LEAD', 'ORGANIZER', 'ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<TeamMemberDto> updateTeamMember(
             @PathVariable Long id,
             @PathVariable Long memberId,
@@ -45,7 +45,7 @@ public class TeamMemberController {
     }
 
     @DeleteMapping("/{memberId}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'ORGANIZER', 'TEAM_LEAD')")
+    @PreAuthorize("hasAnyRole('TEAM', 'TEAM_LEAD', 'ORGANIZER', 'ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<Void> deleteTeamMember(@PathVariable Long id, @PathVariable Long memberId) {
         memberService.deleteMember(id, memberId);
         return ResponseEntity.noContent().build();

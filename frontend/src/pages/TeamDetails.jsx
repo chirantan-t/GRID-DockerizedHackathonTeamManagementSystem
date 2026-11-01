@@ -25,7 +25,7 @@ export const TeamDetails = () => {
   const [memberModal, setMemberModal] = useState({ isOpen: false, member: null });
   const [deleteMemberModal, setDeleteMemberModal] = useState({ isOpen: false, memberId: null, memberName: '' });
 
-  const { isAdmin, isOrganizer, user } = useAuth();
+  const { isAdmin, isOrganizer, isLead, user } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -57,7 +57,7 @@ export const TeamDetails = () => {
   const handleDeleteTeam = async () => {
     try {
       await teamService.deleteTeam(id);
-      navigate('/teams');
+      navigate(isLead ? '/' : '/teams');
     } catch (err) {
       setError(err.extractedMessage || 'Failed to delete team.');
     }
@@ -83,6 +83,7 @@ export const TeamDetails = () => {
   };
 
   const canEdit = isAdmin || isOrganizer || user?.username === team?.teamLead;
+  const isUnauthorizedLead = isLead && team && team.teamLead?.toLowerCase() !== user?.username?.toLowerCase();
 
   if (loading) {
     return (
@@ -92,12 +93,28 @@ export const TeamDetails = () => {
     );
   }
 
+  if (isUnauthorizedLead) {
+    return (
+      <div className="page-wrapper">
+        <div className="alert alert-danger" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <AlertCircle size={20} />
+          <div>
+            <strong>Access Restricted:</strong> As a Team Lead, you are only permitted to view and manage your own registered team.
+          </div>
+        </div>
+        <Link to="/" className="btn btn-primary" style={{ marginTop: '1rem' }}>
+          <ArrowLeft size={16} /> Return to My Team Dashboard
+        </Link>
+      </div>
+    );
+  }
+
   if (!team) {
     return (
       <div className="page-wrapper">
         <div className="alert alert-danger">Team record not found.</div>
-        <Link to="/teams" className="btn btn-secondary">
-          <ArrowLeft size={16} /> Back to Teams
+        <Link to={isLead ? "/" : "/teams"} className="btn btn-secondary">
+          <ArrowLeft size={16} /> {isLead ? 'Return to Dashboard' : 'Back to Teams'}
         </Link>
       </div>
     );
@@ -107,9 +124,9 @@ export const TeamDetails = () => {
     <div className="page-wrapper" id="team-details-page">
       {/* Navigation Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-        <Link to="/teams" className="btn btn-secondary btn-sm" id="back-to-teams-btn">
+        <Link to={isLead ? "/" : "/teams"} className="btn btn-secondary btn-sm" id="back-to-teams-btn">
           <ArrowLeft size={16} />
-          <span>Back to Teams</span>
+          <span>{isLead ? 'Back to My Team' : 'Back to Teams'}</span>
         </Link>
 
         <div style={{ display: 'flex', gap: '0.6rem' }}>
