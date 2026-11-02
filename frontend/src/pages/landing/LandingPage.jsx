@@ -18,7 +18,7 @@ export const LandingPage = () => {
     setIsTransitioning(true);
     setTimeout(() => {
       navigate('/login');
-    }, 600);
+    }, 450);
   };
 
   return (
@@ -37,24 +37,24 @@ export const LandingPage = () => {
         userSelect: 'none'
       }}
     >
-      {/* 3D Floating Laptop Stage with canonical 1670:941 aspect ratio */}
+      {/* 3D Floating Laptop Stage (16:9 Full Screen Edge-to-Edge Coverage) */}
       <div
         style={{
           position: 'relative',
-          width: 'min(100vw, 177.47vh)',
-          height: 'min(100vh, 56.35vw)',
+          width: '100vw',
+          height: '100vh',
           maxWidth: '100vw',
           maxHeight: '100vh',
-          aspectRatio: '1670 / 941',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          transformOrigin: '48.20% 59.83%',
-          transform: isTransitioning ? 'scale(3.8)' : 'scale(1)',
+          transformOrigin: '50.0% 58.0%',
+          transform: isTransitioning ? 'scale(1.06)' : 'scale(1)',
           opacity: isTransitioning ? 0 : 1,
+          filter: isTransitioning ? 'blur(6px)' : 'blur(0px)',
           transition: isTransitioning
-            ? 'transform 0.65s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.55s ease-in'
-            : 'transform 0.3s ease, opacity 0.3s ease'
+            ? 'transform 0.45s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.4s ease-out, filter 0.45s ease-out'
+            : 'transform 0.3s ease, opacity 0.3s ease, filter 0.3s ease'
         }}
       >
         {/* Photorealistic Canonical Render Base Image */}
@@ -65,7 +65,7 @@ export const LandingPage = () => {
           style={{
             width: '100%',
             height: '100%',
-            objectFit: 'contain',
+            objectFit: 'fill',
             pointerEvents: 'none',
             display: 'block'
           }}
@@ -164,21 +164,22 @@ export const LandingPage = () => {
           title="Enter GRID"
           style={{
             position: 'absolute',
-            left: '40.0%',
-            top: '54.83%',
-            width: '16.41%',
-            height: '9.99%',
+            left: '43.6%',
+            top: '54.8%',
+            width: '12.8%',
+            height: '6.4%',
             borderRadius: '9999px',
             background: isHovered ? 'rgba(0, 245, 138, 0.12)' : 'transparent',
-            border: isHovered
-              ? '1.6px solid rgba(0, 245, 138, 0.9)'
-              : '1.6px solid transparent',
+            border: 'none',
             boxShadow: isHovered
-              ? '0 0 35px rgba(0, 245, 138, 0.8), inset 0 0 16px rgba(0, 245, 138, 0.35)'
+              ? '0 0 28px rgba(0, 245, 138, 0.45), 0 0 60px rgba(0, 245, 138, 0.2)'
               : 'none',
+            backdropFilter: isHovered ? 'brightness(1.18)' : 'none',
+            WebkitBackdropFilter: isHovered ? 'brightness(1.18)' : 'none',
+            transform: isHovered ? 'scale(1.03)' : 'scale(1)',
             cursor: 'pointer',
             outline: 'none',
-            transition: 'all 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
+            transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
             zIndex: 35
           }}
         />
@@ -189,7 +190,7 @@ export const LandingPage = () => {
           title="Enter GRID"
           style={{
             position: 'absolute',
-            left: '48.20%',
+            left: '50.0%',
             top: '84.0%',
             transform: 'translateX(-50%)',
             width: '3.6%',
