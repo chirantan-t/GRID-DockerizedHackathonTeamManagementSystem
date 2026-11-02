@@ -10,10 +10,13 @@ import { ArrowRight, ArrowLeft, Check, Calendar, Users, Trophy } from 'lucide-re
 export const TeamRegistration = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const hackathon = MOCK_HACKATHONS.find(h => String(h.id) === String(id)) || MOCK_HACKATHONS[0];
+  const [hackathon, setHackathon] = useState(() => {
+    return MOCK_HACKATHONS.find(h => String(h.id) === String(id)) || MOCK_HACKATHONS[0];
+  });
 
   const [step, setStep] = useState(1);
   const [submitting, setSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
   const [formData, setFormData] = useState({
     teamName: 'Team Alpha',
     teamTag: 'ALPHA',
@@ -26,6 +29,29 @@ export const TeamRegistration = () => {
   });
 
   const [newMember, setNewMember] = useState({ name: '', email: '', role: 'Developer' });
+
+  // Load real hackathon from database
+  React.useEffect(() => {
+    let isMounted = true;
+    const fetchHackathon = async () => {
+      try {
+        const live = await hackathonService.getById(id);
+        if (live && isMounted) {
+          setHackathon(prev => ({
+            ...prev,
+            id: live.id,
+            title: live.title,
+            dates: live.eventStart ? `${new Date(live.eventStart).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })} 2026` : prev.dates,
+            teamSize: `${live.minTeamSize || 2} - ${live.maxTeamSize || 4} Members`,
+            prizePool: live.prizePool || prev.prizePool,
+            category: live.category || prev.category
+          }));
+        }
+      } catch (_e) {}
+    };
+    fetchHackathon();
+    return () => { isMounted = false; };
+  }, [id]);
 
   const handleAddMember = (e) => {
     e.preventDefault();
@@ -42,44 +68,53 @@ export const TeamRegistration = () => {
       setStep(step + 1);
     } else {
       setSubmitting(true);
+      setErrorMessage('');
       try {
+        const hackathonNumericId = Number(id) || 1;
         let teamId = null;
+
+        // 1. Check if user already has an available team NOT yet registered for this hackathon
         try {
           const myTeams = await teamService.getMyTeams();
           if (myTeams && myTeams.length > 0) {
-            teamId = myTeams[0].id;
+            const existingRegs = await registrationService.getByHackathon(hackathonNumericId);
+            const registeredTeamIds = (existingRegs || []).map(r => r.teamId);
+            const availableTeam = myTeams.find(t => !registeredTeamIds.includes(t.id));
+            if (availableTeam && availableTeam.teamName.toLowerCase() === formData.teamName.toLowerCase()) {
+              teamId = availableTeam.id;
+            }
           }
-        } catch (e) {
-          console.warn('Could not fetch existing team:', e);
-        }
+        } catch (_fetchErr) {}
 
+        // 2. If no available team or user specified a distinct squad name, create a real team in MySQL
         if (!teamId) {
+          const generatedCode = (formData.teamTag || formData.teamName.replace(/\s+/g, '').slice(0, 4) + '-' + Math.floor(1000 + Math.random() * 9000)).toUpperCase();
+          const trackVal = formData.domain === 'AI / ML' ? 'AI_ML' : (formData.domain === 'Sustainability & IoT' ? 'OPEN_INNOVATION' : 'CYBERSECURITY');
           const newTeam = await teamService.createTeam({
             teamName: formData.teamName,
-            teamCode: (formData.teamTag || formData.teamName.slice(0, 5) + Date.now().toString().slice(-4)).toUpperCase(),
-            description: formData.projectTitle || 'Hackathon participating team'
+            teamCode: generatedCode,
+            projectTitle: formData.projectTitle || 'Autonomous System Project',
+            projectDescription: formData.projectTitle || 'Hackathon engineering solution',
+            teamLead: formData.members?.[0]?.email || 'chirantan@grid.dev',
+            track: trackVal
           });
           teamId = newTeam.id;
         }
 
-        const hackathonNumericId = Number(id) || 1;
-        try {
-          await registrationService.registerTeam(hackathonNumericId, teamId);
-        } catch (regErr) {
-          console.warn('API registration call notice:', regErr);
-        }
+        // 3. Register the team in the MySQL database!
+        const regResult = await registrationService.registerTeam(hackathonNumericId, teamId);
 
-        // Save to local cache so it immediately reflects in Team Dashboard
+        // 4. Update local cache for instant zero-lag rendering
         try {
           const cached = JSON.parse(localStorage.getItem('grid_user_registrations') || '[]');
           const newEntry = {
-            id: Date.now(),
+            id: regResult?.id || Date.now(),
             hackathonId: hackathonNumericId,
             hackathonTitle: hackathon.title,
             teamId: teamId,
             teamName: formData.teamName,
-            status: 'PENDING',
-            registrationStatus: 'PENDING',
+            status: regResult?.status || 'PENDING',
+            registrationStatus: regResult?.status || 'PENDING',
             registeredAt: new Date().toISOString(),
             dates: hackathon.dates,
             hackathon: hackathon
@@ -92,8 +127,13 @@ export const TeamRegistration = () => {
 
         navigate('/team/dashboard');
       } catch (err) {
-        console.warn('Registration completed or already registered:', err);
-        navigate('/team/dashboard');
+        console.error('Registration error:', err);
+        const msg = err.response?.data?.message || err.extractedMessage || 'Registration was already completed or failed.';
+        if (msg.toLowerCase().includes('already registered')) {
+          navigate('/team/dashboard');
+        } else {
+          setErrorMessage(msg);
+        }
       } finally {
         setSubmitting(false);
       }

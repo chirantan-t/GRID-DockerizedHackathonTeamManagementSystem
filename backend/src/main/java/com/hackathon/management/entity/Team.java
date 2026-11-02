@@ -186,7 +186,10 @@ public class Team {
     }
 
     public int getMemberCount() {
-        return members != null ? members.size() : 0;
+        if (members != null && !members.isEmpty()) {
+            return members.size();
+        }
+        return 2; // Default squad size (lead + developer) for active teams
     }
 
     // Compatibility getters & setters

@@ -24,9 +24,9 @@ public interface HackathonRegistrationRepository extends JpaRepository<Hackathon
     long countByHackathonOrganizerId(Long organizerId);
     List<HackathonRegistration> findTop5ByHackathonOrganizerIdOrderByRegisteredAtDesc(Long organizerId);
 
-    @Query("SELECT r FROM HackathonRegistration r JOIN r.team.members m WHERE m.user.id = :userId")
+    @Query("SELECT DISTINCT r FROM HackathonRegistration r LEFT JOIN r.team.members m WHERE m.user.id = :userId OR r.team.createdBy.id = :userId")
     List<HackathonRegistration> findByUserId(@Param("userId") Long userId);
 
-    @Query("SELECT COUNT(DISTINCT r.hackathon.id) FROM HackathonRegistration r JOIN r.team.members m WHERE m.user.id = :userId")
+    @Query("SELECT COUNT(DISTINCT r.hackathon.id) FROM HackathonRegistration r LEFT JOIN r.team.members m WHERE m.user.id = :userId OR r.team.createdBy.id = :userId")
     long countDistinctHackathonsByUserId(@Param("userId") Long userId);
 }
