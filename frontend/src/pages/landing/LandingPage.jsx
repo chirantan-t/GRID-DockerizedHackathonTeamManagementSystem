@@ -131,30 +131,44 @@ export const LandingPage = () => {
           }}
         />
 
-        {/* 4. Hotspot: Top Right 'Enter' (was 'Docs') - enters portal directly */}
-        <div
+        {/* 4. Top Right 'Enter' Pill (covers 'Docs' on background) */}
+        <button
           onClick={handleEnter}
           title="Enter GRID Portal"
           style={{
             position: 'absolute',
-            left: '90.2%',
-            top: '2.2%',
-            width: '5.8%',
-            height: '5.6%',
+            left: '90.6%',
+            top: '3.1%',
+            width: '5.2%',
+            height: '3.6%',
             borderRadius: '9999px',
+            background: '#040507',
+            border: '1.2px solid rgba(0, 245, 138, 0.45)',
+            color: '#ffffff',
+            fontSize: '12px',
+            fontWeight: 600,
             cursor: 'pointer',
-            zIndex: 30,
+            zIndex: 35,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            letterSpacing: '0.02em',
+            boxShadow: '0 0 12px rgba(0, 245, 138, 0.25)',
             transition: 'all 0.25s ease'
           }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.boxShadow = '0 0 16px rgba(0, 245, 138, 0.5), inset 0 0 10px rgba(0, 245, 138, 0.2)';
-            e.currentTarget.style.background = 'rgba(0, 245, 138, 0.08)';
+            e.currentTarget.style.background = 'var(--grid-neon)';
+            e.currentTarget.style.color = '#040507';
+            e.currentTarget.style.boxShadow = '0 0 20px rgba(0, 245, 138, 0.6)';
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.boxShadow = 'none';
-            e.currentTarget.style.background = 'transparent';
+            e.currentTarget.style.background = '#040507';
+            e.currentTarget.style.color = '#ffffff';
+            e.currentTarget.style.boxShadow = '0 0 14px rgba(0, 245, 138, 0.25)';
           }}
-        />
+        >
+          Enter
+        </button>
 
         {/* 5. Hotspot & Interactive Glow: Center "Enter GRID ->" Button */}
         <button

@@ -1,7 +1,75 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Megaphone, Plus, MoreHorizontal, X, Send } from 'lucide-react';
 import { mockOrganizerAnnouncements } from '../../data/mockData';
 import announcementService from '../../services/announcementService';
+
+const AnnouncementActionDropdown = ({ item, onDelete }) => {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const handleAction = (type) => {
+    setOpen(false);
+    if (type === 'copy') {
+      try {
+        navigator.clipboard?.writeText(`${item.title}: ${item.content}`);
+      } catch (_e) {}
+      alert(`Copied announcement: "${item.title}"`);
+    } else if (type === 'delete') {
+      onDelete(item.id);
+    }
+  };
+
+  return (
+    <div ref={ref} style={{ position: 'relative', display: 'inline-block' }}>
+      <button
+        onClick={() => setOpen(p => !p)}
+        className="grid-btn grid-btn-secondary"
+        style={{ padding: '4px 8px', background: open ? 'rgba(0,245,138,0.15)' : undefined }}
+        title="Options"
+      >
+        <MoreHorizontal size={14} color={open ? 'var(--grid-neon)' : 'currentColor'} />
+      </button>
+      {open && (
+        <div style={{
+          position: 'absolute', right: 0, top: '110%', zIndex: 999,
+          background: 'rgba(18, 22, 28, 0.98)', border: '1px solid rgba(255,255,255,0.12)',
+          borderRadius: '12px', padding: '6px', minWidth: '150px',
+          boxShadow: '0 8px 32px rgba(0,0,0,0.6), 0 0 20px rgba(0,245,138,0.08)',
+          backdropFilter: 'blur(24px)'
+        }}>
+          {[
+            { label: '📋 Copy Text', type: 'copy' },
+            { label: '🗑 Delete', type: 'delete' }
+          ].map(({ label, type }) => (
+            <button
+              key={type}
+              onClick={() => handleAction(type)}
+              style={{
+                display: 'block', width: '100%', textAlign: 'left',
+                background: 'transparent', border: 'none',
+                color: type === 'delete' ? '#ff4d4f' : '#fff',
+                padding: '8px 12px', borderRadius: '8px', cursor: 'pointer', fontSize: '12.5px',
+                fontWeight: 500, transition: 'background 0.2s ease'
+              }}
+              onMouseEnter={e => e.currentTarget.style.background = type === 'delete' ? 'rgba(255,77,79,0.15)' : 'rgba(0,245,138,0.1)'}
+              onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
 
 export const OrganizerAnnouncements = () => {
   const [announcements, setAnnouncements] = useState(mockOrganizerAnnouncements);
@@ -122,9 +190,10 @@ export const OrganizerAnnouncements = () => {
                 <h3 style={{ fontSize: '15px', fontWeight: 600, color: '#fff', margin: 0 }}>
                   {item.title}
                 </h3>
-                <button className="grid-btn grid-btn-secondary" style={{ padding: '4px 8px' }}>
-                  <MoreHorizontal size={14} />
-                </button>
+                <AnnouncementActionDropdown
+                  item={item}
+                  onDelete={(id) => setAnnouncements(prev => prev.filter(a => a.id !== id))}
+                />
               </div>
 
               <div style={{ fontSize: '12px', color: 'var(--grid-neon)', marginBottom: '8px' }}>

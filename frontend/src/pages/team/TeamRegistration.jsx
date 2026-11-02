@@ -158,6 +158,20 @@ export const TeamRegistration = () => {
         currentStep={step}
       />
 
+      {errorMessage && (
+        <div style={{
+          padding: '12px 18px',
+          borderRadius: '12px',
+          background: 'rgba(255, 77, 79, 0.12)',
+          border: '1px solid rgba(255, 77, 79, 0.3)',
+          color: '#ff6b6b',
+          fontSize: '13px',
+          fontWeight: 500
+        }}>
+          ⚠️ {errorMessage}
+        </div>
+      )}
+
       <div style={{ display: 'grid', gridTemplateColumns: '1.8fr 1fr', gap: '24px', alignItems: 'start' }}>
         {/* Form Area Glass Surface */}
         <GlassSurface style={{ padding: '32px' }}>

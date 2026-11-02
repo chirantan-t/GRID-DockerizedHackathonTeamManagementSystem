@@ -61,16 +61,10 @@ export const HackathonOversight = () => {
             id: h.id,
             title: h.title,
             organizer: h.organizerName || 'VIT Events Coordinator',
-            teams: h.registrationsCount || 24,
+            teams: h.registrationsCount ?? 0,
             status: h.status === 'PUBLISHED' ? 'Upcoming' : (h.status === 'ONGOING' ? 'Ongoing' : 'Completed')
           }));
-          const merged = [...mapped];
-          mockPlatformHackathons.forEach(mh => {
-            if (!merged.some(m => m.title.toLowerCase() === mh.title.toLowerCase())) {
-              merged.push(mh);
-            }
-          });
-          setHackathonsList(merged);
+          setHackathonsList(mapped);
         }
       } catch (err) {
         console.warn('Could not fetch all hackathons from API, using fallback:', err);

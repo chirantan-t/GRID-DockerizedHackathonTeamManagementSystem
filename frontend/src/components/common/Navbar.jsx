@@ -56,13 +56,18 @@ export const Navbar = ({ title = 'Explore Hackathons' }) => {
     return () => { isMounted = false; };
   }, []);
 
+  const executeSearch = () => {
+    const q = searchQuery.trim();
+    if (role === 'ORGANIZER') {
+      navigate(q ? `/organizer/hackathons?search=${encodeURIComponent(q)}` : '/organizer/hackathons');
+    } else {
+      navigate(q ? `/team/explore?search=${encodeURIComponent(q)}` : '/team/explore');
+    }
+  };
+
   const handleSearchSubmit = (e) => {
-    if (e.key === 'Enter' && searchQuery.trim()) {
-      if (role === 'ORGANIZER') {
-        navigate(`/organizer/hackathons?search=${encodeURIComponent(searchQuery.trim())}`);
-      } else {
-        navigate(`/team/explore?search=${encodeURIComponent(searchQuery.trim())}`);
-      }
+    if (e.key === 'Enter') {
+      executeSearch();
     }
   };
 
@@ -119,7 +124,21 @@ export const Navbar = ({ title = 'Explore Hackathons' }) => {
           backdropFilter: 'blur(16px)',
           transition: 'border-color 0.2s ease'
         }}>
-          <Search size={14} color="var(--text-muted)" />
+          <button
+            onClick={executeSearch}
+            title="Search"
+            style={{
+              background: 'transparent',
+              border: 'none',
+              padding: 0,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              color: 'var(--text-muted)'
+            }}
+          >
+            <Search size={14} />
+          </button>
           <input
             type="text"
             placeholder="Search hackathons..."

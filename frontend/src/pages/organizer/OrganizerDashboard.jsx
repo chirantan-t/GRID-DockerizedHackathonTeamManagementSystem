@@ -26,10 +26,10 @@ export const OrganizerDashboard = () => {
     return () => { isMounted = false; };
   }, []);
 
-  const totalHackathons = dashboard?.ownedHackathonsCount ?? mockOrganizerStats.totalHackathons;
-  const registeredTeams = dashboard?.pendingRegistrationsCount ?? mockOrganizerStats.registeredTeams;
-  const submissions = dashboard?.submissionsCount ?? mockOrganizerStats.submissions;
-  const evaluations = dashboard?.evaluationsCount ?? mockOrganizerStats.ongoing;
+  const totalHackathons = dashboard?.totalHackathons ?? 0;
+  const registeredTeams = dashboard?.totalRegistrations ?? 0;
+  const submissions = dashboard?.totalSubmissions ?? 0;
+  const evaluations = dashboard?.ongoingHackathons ?? 0;
   const activeHackathons = dashboard?.ownedHackathons && dashboard.ownedHackathons.length > 0
     ? dashboard.ownedHackathons.map(h => ({
         id: h.id,
@@ -37,11 +37,11 @@ export const OrganizerDashboard = () => {
         tagline: h.description,
         status: h.status === 'PUBLISHED' ? 'Registration Open' : (h.status === 'ONGOING' ? 'Ongoing' : h.status),
         dates: h.eventStart ? `${new Date(h.eventStart).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })} 2026` : '15 – 16 Nov 2026',
-        registeredTeams: h.registrationsCount || 24,
-        submissions: h.submissionsCount || 18,
+        registeredTeams: h.registrationsCount ?? 0,
+        submissions: h.submissionsCount ?? 0,
         category: h.category || 'AI / ML'
       }))
-    : mockHackathons.filter(h => h.status === 'Ongoing' || h.status === 'Registration Open');
+    : [];
 
   return (
     <div className="grid-page-enter" style={{ display: 'flex', flexDirection: 'column', gap: '22px' }}>

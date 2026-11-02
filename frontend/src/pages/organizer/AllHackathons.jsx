@@ -1,22 +1,123 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, MoreHorizontal, ExternalLink } from 'lucide-react';
 import { Badge } from '../../components/common/Badge';
-import { mockHackathons } from '../../data/mockData';
+import hackathonService from '../../services/hackathonService';
+
+const HackathonActionDropdown = ({ hackathon, navigate }) => {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const handleAction = (type) => {
+    setOpen(false);
+    if (type === 'view') {
+      navigate(`/organizer/hackathons/${hackathon.id}`);
+    } else if (type === 'teams') {
+      navigate('/organizer/teams');
+    } else if (type === 'submissions') {
+      navigate('/organizer/submissions');
+    } else if (type === 'copy') {
+      try {
+        navigator.clipboard?.writeText(`${window.location.origin}/organizer/hackathons/${hackathon.id}`);
+      } catch (_e) {}
+      alert(`Link copied for ${hackathon.title}!`);
+    }
+  };
+
+  return (
+    <div ref={ref} style={{ position: 'relative', display: 'inline-block' }} onClick={(e) => e.stopPropagation()}>
+      <button
+        onClick={() => setOpen(p => !p)}
+        className="grid-btn grid-btn-secondary"
+        style={{ padding: '6px 10px', background: open ? 'rgba(0,245,138,0.15)' : undefined }}
+        title="More Actions"
+      >
+        <MoreHorizontal size={14} color={open ? 'var(--grid-neon)' : 'currentColor'} />
+      </button>
+      {open && (
+        <div style={{
+          position: 'absolute', right: 0, top: '110%', zIndex: 999,
+          background: 'rgba(18, 22, 28, 0.98)', border: '1px solid rgba(255,255,255,0.12)',
+          borderRadius: '12px', padding: '6px', minWidth: '160px',
+          boxShadow: '0 8px 32px rgba(0,0,0,0.6), 0 0 20px rgba(0,245,138,0.08)',
+          backdropFilter: 'blur(24px)'
+        }}>
+          {[
+            { label: '👁 View Details', type: 'view' },
+            { label: '👥 Registered Teams', type: 'teams' },
+            { label: '📝 Submissions', type: 'submissions' },
+            { label: '🔗 Copy Share Link', type: 'copy' }
+          ].map(({ label, type }) => (
+            <button
+              key={type}
+              onClick={() => handleAction(type)}
+              style={{
+                display: 'block', width: '100%', textAlign: 'left',
+                background: 'transparent', border: 'none', color: '#fff',
+                padding: '8px 12px', borderRadius: '8px', cursor: 'pointer', fontSize: '12.5px',
+                fontWeight: 500, transition: 'background 0.2s ease'
+              }}
+              onMouseEnter={e => e.currentTarget.style.background = 'rgba(0,245,138,0.1)'}
+              onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
 
 export const AllHackathons = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('All');
+  const [hackathons, setHackathons] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let isMounted = true;
+    const fetchHackathons = async () => {
+      try {
+        const live = await hackathonService.getAll();
+        if (live && live.length > 0 && isMounted) {
+          const mapped = live.map(h => ({
+            id: h.id,
+            title: h.title,
+            dates: h.eventStart ? `${new Date(h.eventStart).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })} 2026` : 'Nov 2026',
+            status: h.status === 'PUBLISHED' ? 'Published' : (h.status === 'ONGOING' ? 'Ongoing' : (h.status === 'DRAFT' ? 'Draft' : 'Completed')),
+            registeredTeams: h.registrationsCount ?? 0,
+            submissions: h.submissionsCount ?? 0
+          }));
+          setHackathons(mapped);
+        }
+      } catch (err) {
+        console.warn('Could not fetch hackathons from API:', err);
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    };
+    fetchHackathons();
+    return () => { isMounted = false; };
+  }, []);
 
   const tabs = [
-    { label: 'All', count: 6 },
-    { label: 'Draft', count: 1 },
-    { label: 'Published', count: 4 },
-    { label: 'Ongoing', count: 1 },
-    { label: 'Completed', count: 0 }
+    { label: 'All', count: hackathons.length },
+    { label: 'Draft', count: hackathons.filter(h => h.status === 'Draft').length },
+    { label: 'Published', count: hackathons.filter(h => h.status === 'Published').length },
+    { label: 'Ongoing', count: hackathons.filter(h => h.status === 'Ongoing').length },
+    { label: 'Completed', count: hackathons.filter(h => h.status === 'Completed').length }
   ];
 
-  const filteredHackathons = mockHackathons.filter(h => {
+  const filteredHackathons = hackathons.filter(h => {
     if (activeTab === 'All') return true;
     if (activeTab === 'Draft') return h.status === 'Draft';
     if (activeTab === 'Published') return h.status === 'Published' || h.status === 'Registration Open';
@@ -31,7 +132,7 @@ export const AllHackathons = () => {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
         <div>
           <h1 style={{ fontSize: '26px', fontWeight: 700, color: '#fff', margin: 0, letterSpacing: '-0.02em' }}>
-            Hackathons
+            Hackathons ({hackathons.length})
           </h1>
           <p style={{ color: 'var(--grid-text-secondary)', fontSize: '14px', margin: '4px 0 0' }}>
             View and manage all hackathons created under your organization.
@@ -68,14 +169,14 @@ export const AllHackathons = () => {
         ))}
       </div>
 
-      {/* Hackathons Table */}
+      {/* Table */}
       <div className="grid-table-container">
         <table className="grid-table">
           <thead>
             <tr>
               <th>Hackathon</th>
               <th>Status</th>
-              <th>Teams</th>
+              <th>Registered Teams</th>
               <th>Submissions</th>
               <th style={{ textAlign: 'right' }}>Actions</th>
             </tr>
@@ -95,10 +196,10 @@ export const AllHackathons = () => {
                   <Badge variant={h.status}>{h.status}</Badge>
                 </td>
                 <td style={{ color: 'var(--grid-text-secondary)' }}>
-                  {h.registeredTeams || '-'}
+                  {h.registeredTeams ?? 0}
                 </td>
                 <td style={{ color: 'var(--grid-text-secondary)' }}>
-                  {h.submissions || '-'}
+                  {h.submissions ?? 0}
                 </td>
                 <td style={{ textAlign: 'right' }}>
                   <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
@@ -109,16 +210,11 @@ export const AllHackathons = () => {
                       }}
                       className="grid-btn grid-btn-secondary"
                       style={{ padding: '6px 10px', fontSize: '12px' }}
+                      title="Open Hackathon"
                     >
                       <ExternalLink size={13} />
                     </button>
-                    <button
-                      onClick={(e) => e.stopPropagation()}
-                      className="grid-btn grid-btn-secondary"
-                      style={{ padding: '6px 10px' }}
-                    >
-                      <MoreHorizontal size={14} />
-                    </button>
+                    <HackathonActionDropdown hackathon={h} navigate={navigate} />
                   </div>
                 </td>
               </tr>
@@ -129,4 +225,3 @@ export const AllHackathons = () => {
     </div>
   );
 };
-

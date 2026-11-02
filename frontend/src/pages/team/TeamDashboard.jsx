@@ -1,96 +1,103 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
 import { StatCard } from '../../components/common/StatCard';
 import GlassSurface from '../../components/GlassSurface';
 import dashboardService from '../../services/dashboardService';
 import teamService from '../../services/teamService';
 import registrationService from '../../services/registrationService';
 import hackathonService from '../../services/hackathonService';
-import { Bookmark, FileText, Clock, CheckCircle2, ArrowRight, Calendar, Users } from 'lucide-react';
+import { Bookmark, FileText, Clock, CheckCircle2, ArrowRight, Calendar, Users, RefreshCw } from 'lucide-react';
 
 export const TeamDashboard = () => {
   const navigate = useNavigate();
+  const { user, role, isAuthenticated } = useAuth();
   const [dashboard, setDashboard] = useState(null);
-  const [registeredEvents, setRegisteredEvents] = useState(() => {
-    try {
-      return JSON.parse(localStorage.getItem('grid_user_registrations') || '[]');
-    } catch (_e) {
-      return [];
-    }
-  });
+  const [registeredEvents, setRegisteredEvents] = useState([]);
   const [teamName, setTeamName] = useState('Team Alpha');
+  const [loading, setLoading] = useState(true);
+
+  const fetchAll = async () => {
+    setLoading(true);
+    let combinedRegs = [];
+
+    // 1. Fetch server dashboard API (real MySQL data)
+    try {
+      const data = await dashboardService.getTeamDashboard();
+      if (data) {
+        setDashboard(data);
+        if (data.registrations && data.registrations.length > 0) {
+          data.registrations.forEach(r => {
+            combinedRegs.push({
+              ...r,
+              id: r.id,
+              hackathonId: r.hackathonId,
+              hackathon: {
+                title: r.hackathonTitle || 'Hackathon Event',
+                status: r.status || r.registrationStatus
+              }
+            });
+          });
+        }
+      }
+    } catch (err) {
+      console.warn('Dashboard API response note:', err);
+    }
+
+    // 2. Fetch team info and registrations directly by team IDs
+    try {
+      const myTeams = await teamService.getMyTeams();
+      if (myTeams && myTeams.length > 0) {
+        setTeamName(myTeams[0].teamName || myTeams[0].name || 'Team Alpha');
+
+        for (const t of myTeams) {
+          try {
+            const regs = await registrationService.getByTeam(t.id);
+            if (regs && regs.length > 0) {
+              for (const reg of regs) {
+                if (!combinedRegs.some(c => String(c.hackathonId) === String(reg.hackathonId))) {
+                  try {
+                    const h = await hackathonService.getById(reg.hackathonId);
+                    combinedRegs.push({ ...reg, hackathon: h });
+                  } catch (_hErr) {
+                    combinedRegs.push({
+                      ...reg,
+                      hackathon: { title: reg.hackathonTitle || 'Hackathon' }
+                    });
+                  }
+                }
+              }
+            }
+          } catch (_rErr) {}
+        }
+      }
+    } catch (_tErr) {}
+
+    // 3. Fallback to localStorage cached entries
+    try {
+      const localCached = JSON.parse(localStorage.getItem('grid_user_registrations') || '[]');
+      if (Array.isArray(localCached)) {
+        localCached.forEach(lc => {
+          if (!combinedRegs.some(c => String(c.hackathonId) === String(lc.hackathonId))) {
+            combinedRegs.push(lc);
+          }
+        });
+      }
+    } catch (_cErr) {}
+
+    setRegisteredEvents(combinedRegs);
+    setLoading(false);
+  };
 
   useEffect(() => {
-    let isMounted = true;
-    const fetchAll = async () => {
-      let combinedRegs = [];
-      try {
-        const localCached = JSON.parse(localStorage.getItem('grid_user_registrations') || '[]');
-        if (Array.isArray(localCached)) combinedRegs = [...localCached];
-      } catch (_e) {}
-
-      // 1. Try server dashboard API
-      try {
-        const data = await dashboardService.getTeamDashboard();
-        if (data && isMounted) {
-          setDashboard(data);
-          if (data.registrations && data.registrations.length > 0) {
-            data.registrations.forEach(r => {
-              if (!combinedRegs.some(c => String(c.hackathonId) === String(r.hackathonId))) {
-                combinedRegs.push({
-                  ...r,
-                  hackathon: { title: r.hackathonTitle || 'InnovateX 2026' }
-                });
-              }
-            });
-          }
-        }
-      } catch (err) {
-        console.warn('Could not fetch team dashboard from API:', err);
-      }
-
-      // 2. Fetch team info and registrations
-      try {
-        const myTeams = await teamService.getMyTeams();
-        if (myTeams && myTeams.length > 0 && isMounted) {
-          const team = myTeams[0];
-          setTeamName(team.teamName || team.name || 'Team Alpha');
-
-          const regs = await registrationService.getByTeam(team.id);
-          if (regs && regs.length > 0 && isMounted) {
-            const enriched = await Promise.all(regs.map(async (reg) => {
-              try {
-                const h = await hackathonService.getById(reg.hackathonId);
-                return { ...reg, hackathon: h };
-              } catch (_e) {
-                return { ...reg, hackathon: { title: reg.hackathonTitle || 'Hackathon' } };
-              }
-            }));
-            enriched.forEach(e => {
-              if (!combinedRegs.some(c => String(c.hackathonId) === String(e.hackathonId))) {
-                combinedRegs.push(e);
-              }
-            });
-          }
-        }
-      } catch (err) {
-        console.warn('Could not fetch team registrations:', err);
-      }
-
-      if (isMounted && combinedRegs.length > 0) {
-        setRegisteredEvents(combinedRegs);
-      }
-    };
     fetchAll();
-    return () => { isMounted = false; };
-  }, []);
+  }, [role, isAuthenticated]);
 
   const displayName = dashboard?.teamName || teamName;
-  const regCount = registeredEvents.length || dashboard?.registeredHackathonsCount || dashboard?.registrationsCount || 2;
-  const subCount = dashboard?.activeSubmissionsCount || dashboard?.submissionsCount || 1;
-  const inProgCount = dashboard?.inProgressHackathonsCount || dashboard?.inProgressCount || (regCount > 0 ? 1 : 0);
-  const compCount = dashboard?.completedHackathonsCount || dashboard?.completedCount || 0;
-  const activeHackathon = registeredEvents[0]?.hackathon || dashboard?.activeHackathons?.[0];
+  const regCount = dashboard?.registeredHackathonsCount ?? registeredEvents.length;
+  const subCount = dashboard?.activeSubmissionsCount ?? 0;
+  const inProgCount = dashboard?.inProgressHackathonsCount ?? (regCount > 0 ? regCount : 0);
+  const compCount = dashboard?.completedHackathonsCount ?? 0;
 
   return (
     <div className="grid-page-enter" style={{ display: 'flex', flexDirection: 'column', gap: '22px' }}>
@@ -101,13 +108,34 @@ export const TeamDashboard = () => {
             Good Morning, <span style={{ color: 'var(--grid-green)' }}>{displayName}</span>.
           </h1>
           <p style={{ fontSize: '13.5px', color: 'var(--grid-muted)', margin: 0 }}>
-            Here's your hackathon journey at a glance.
+            Here's your real-time hackathon journey backed by live database records.
           </p>
         </div>
-        <span className="grid-status grid-status-ongoing">
-          <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--grid-green)', boxShadow: '0 0 8px var(--grid-green)' }} />
-          {regCount} Active Participations
-        </span>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <button
+            onClick={fetchAll}
+            title="Refresh database records"
+            style={{
+              background: 'rgba(255, 255, 255, 0.04)',
+              border: '1px solid rgba(255, 255, 255, 0.08)',
+              borderRadius: '9999px',
+              padding: '6px 14px',
+              color: 'var(--grid-muted)',
+              fontSize: '12px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px'
+            }}
+          >
+            <RefreshCw size={13} /> Sync Data
+          </button>
+          <span className="grid-status grid-status-ongoing">
+            <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--grid-green)', boxShadow: '0 0 8px var(--grid-green)' }} />
+            {regCount} Active Participations
+          </span>
+        </div>
       </div>
 
       {/* 4 Stat Cards */}
@@ -118,52 +146,68 @@ export const TeamDashboard = () => {
         <StatCard icon={CheckCircle2} label="Completed" value={String(compCount)} />
       </div>
 
-      {/* Registered / Active Hackathons Section */}
+      {/* Registered Hackathons Section */}
       <div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
           <h2 style={{ fontSize: '17px', fontWeight: 700, color: 'var(--grid-text)', margin: 0 }}>
-            {registeredEvents.length > 0 ? 'Your Registered Hackathons' : 'Active Hackathons'}
+            Your Registered Hackathons ({registeredEvents.length})
           </h2>
           <button
             onClick={() => navigate('/team/explore')}
             style={{ background: 'transparent', border: 'none', color: 'var(--grid-green)', fontSize: '13px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
           >
-            {registeredEvents.length > 0 ? 'Explore More' : 'View All'} <ArrowRight size={14} />
+            Explore More <ArrowRight size={14} />
           </button>
         </div>
 
         {registeredEvents.length > 0 ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            {registeredEvents.map((reg) => {
-              const h = reg.hackathon;
+            {registeredEvents.map((reg, idx) => {
+              const h = reg.hackathon || {};
+              const title = h.title || reg.hackathonTitle || 'Hackathon Event';
+              const status = reg.registrationStatus || reg.status || 'PENDING';
               return (
-                <GlassSurface key={reg.id} className="grid-event-card" style={{ padding: '26px', position: 'relative' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '20px', marginBottom: '16px' }}>
+                <GlassSurface key={reg.id || idx} className="grid-event-card" style={{ padding: '24px', position: 'relative' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '20px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '18px' }}>
-                      <div style={{ width: '64px', height: '64px', borderRadius: '18px', background: 'linear-gradient(135deg, #09121a 0%, #032b1a 60%, var(--grid-green) 120%)', border: '1px solid rgba(0, 245, 138, 0.3)', boxShadow: '0 0 20px rgba(0, 245, 138, 0.25)', flexShrink: 0 }} />
+                      <div style={{
+                        width: '56px',
+                        height: '56px',
+                        borderRadius: '16px',
+                        background: 'linear-gradient(135deg, #09121a 0%, #032b1a 60%, var(--grid-green) 120%)',
+                        border: '1px solid rgba(0, 245, 138, 0.3)',
+                        boxShadow: '0 0 16px rgba(0, 245, 138, 0.25)',
+                        flexShrink: 0
+                      }} />
                       <div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
-                          <h3 style={{ fontSize: '19px', fontWeight: 700, color: 'var(--grid-text)', margin: 0 }}>
-                            {h?.title || 'Hackathon'}
+                          <h3 style={{ fontSize: '18px', fontWeight: 700, color: 'var(--grid-text)', margin: 0 }}>
+                            {title}
                           </h3>
-                          <span className="grid-status grid-status-ongoing">
-                            <span style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--grid-green)', boxShadow: '0 0 6px var(--grid-green)' }} />
-                            {reg.registrationStatus || reg.status || 'Registered'}
+                          <span className={`grid-status ${status === 'APPROVED' ? 'grid-status-ongoing' : 'grid-status-pending'}`}>
+                            <span style={{ width: 5, height: 5, borderRadius: '50%', background: status === 'APPROVED' ? 'var(--grid-green)' : '#f59e0b', boxShadow: status === 'APPROVED' ? '0 0 6px var(--grid-green)' : 'none' }} />
+                            {status}
                           </span>
                         </div>
-                        <div style={{ fontSize: '12.5px', color: 'var(--grid-muted)', display: 'flex', gap: '18px', marginTop: '4px' }}>
+                        <div style={{ fontSize: '12px', color: 'var(--grid-muted)', display: 'flex', gap: '16px', marginTop: '4px', flexWrap: 'wrap' }}>
                           <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
                             <Calendar size={13} color="var(--grid-muted)" />
-                            {h?.eventStart ? new Date(h.eventStart).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Nov 2026'}
+                            {reg.registeredAt ? new Date(reg.registeredAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Nov 2026'}
                           </span>
                           <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                            <Users size={13} color="var(--grid-muted)" /> Team: {displayName}
+                            <Users size={13} color="var(--grid-muted)" />
+                            Squad: {reg.teamName || displayName}
                           </span>
                         </div>
                       </div>
                     </div>
-                    <button onClick={() => navigate('/team/workspace')} className="grid-button grid-button-primary">
-                      Project Workspace <ArrowRight size={15} />
+
+                    <button
+                      onClick={() => navigate('/team/workspace')}
+                      className="grid-button grid-button-primary"
+                      style={{ padding: '8px 18px', fontSize: '13px' }}
+                    >
+                      Project Workspace <ArrowRight size={14} />
                     </button>
                   </div>
                 </GlassSurface>
@@ -171,45 +215,17 @@ export const TeamDashboard = () => {
             })}
           </div>
         ) : (
-          /* Fallback when no registrations are loaded */
-          <GlassSurface className="grid-event-card" style={{ padding: '26px', position: 'relative' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '20px', marginBottom: '24px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '18px' }}>
-                <div style={{ width: '64px', height: '64px', borderRadius: '18px', background: 'linear-gradient(135deg, #09121a 0%, #032b1a 60%, var(--grid-green) 120%)', border: '1px solid rgba(0, 245, 138, 0.3)', boxShadow: '0 0 20px rgba(0, 245, 138, 0.25)', flexShrink: 0 }} />
-                <div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
-                    <h3 style={{ fontSize: '19px', fontWeight: 700, color: 'var(--grid-text)', margin: 0 }}>
-                      {activeHackathon?.title || 'InnovateX 2026'}
-                    </h3>
-                    <span className="grid-status grid-status-ongoing">
-                      <span style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--grid-green)', boxShadow: '0 0 6px var(--grid-green)' }} />
-                      {activeHackathon?.status || 'Ongoing'}
-                    </span>
-                  </div>
-                  <div style={{ fontSize: '12.5px', color: 'var(--grid-muted)', display: 'flex', gap: '18px', marginTop: '4px' }}>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                      <Calendar size={13} color="var(--grid-muted)" />
-                      {activeHackathon?.eventStart ? new Date(activeHackathon.eventStart).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '15 Nov 2026'}
-                    </span>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                      <Users size={13} color="var(--grid-muted)" /> Team: {displayName}
-                    </span>
-                  </div>
-                </div>
-              </div>
-              <button onClick={() => navigate('/team/workspace')} className="grid-button grid-button-primary">
-                Project Workspace <ArrowRight size={15} />
-              </button>
-            </div>
-            <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12.5px', fontWeight: 600, marginBottom: '8px' }}>
-                <span style={{ color: 'var(--grid-muted)' }}>Submission Progress</span>
-                <span style={{ color: 'var(--grid-green)' }}>{subCount > 0 ? '100%' : '60%'}</span>
-              </div>
-              <div style={{ width: '100%', height: '7px', background: 'rgba(255, 255, 255, 0.07)', borderRadius: '9999px', overflow: 'hidden' }}>
-                <div style={{ width: subCount > 0 ? '100%' : '60%', height: '100%', background: 'var(--grid-green)', borderRadius: '9999px', boxShadow: '0 0 15px var(--grid-green)' }} />
-              </div>
-            </div>
+          <GlassSurface className="grid-event-card" style={{ padding: '36px', textAlign: 'center' }}>
+            <Bookmark size={32} color="var(--grid-muted)" style={{ margin: '0 auto 12px' }} />
+            <h3 style={{ color: 'var(--grid-text)', fontSize: '17px', fontWeight: 600, marginBottom: '6px' }}>
+              No Registrations Found
+            </h3>
+            <p style={{ color: 'var(--grid-muted)', fontSize: '13px', marginBottom: '18px' }}>
+              You have not registered for any hackathons yet.
+            </p>
+            <button onClick={() => navigate('/team/explore')} className="grid-button grid-button-primary" style={{ margin: '0 auto' }}>
+              Browse & Register Now <ArrowRight size={14} />
+            </button>
           </GlassSurface>
         )}
       </div>
