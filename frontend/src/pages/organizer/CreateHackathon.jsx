@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, CheckCircle2, Calendar, Globe, MapPin, Award } from 'lucide-react';
-import { Stepper } from '../../components/common/Stepper';
 import hackathonService from '../../services/hackathonService';
 
 export const CreateHackathon = () => {
@@ -21,8 +20,6 @@ export const CreateHackathon = () => {
     prizePool: '₹50,000'
   });
   const [published, setPublished] = useState(false);
-
-  const steps = ['Basic Info', 'Timeline', 'Rules & Criteria', 'Review'];
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -76,11 +73,6 @@ export const CreateHackathon = () => {
             Set up and publish a new event for innovators and student developers.
           </p>
         </div>
-      </div>
-
-      {/* Stepper */}
-      <div style={{ marginBottom: '32px' }}>
-        <Stepper steps={steps} currentStep={currentStep} />
       </div>
 
       {/* Form Card */}
