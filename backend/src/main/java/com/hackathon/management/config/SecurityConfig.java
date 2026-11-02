@@ -59,7 +59,8 @@ public class SecurityConfig {
                 .requestMatchers("/api/**").authenticated()
                 .anyRequest().permitAll()
             )
-            .httpBasic(basic -> {});
+            // Disable HTTP Basic Auth to prevent browser native sign-in popup on 401
+            .httpBasic(basic -> basic.disable());
 
         return http.build();
     }

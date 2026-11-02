@@ -1,8 +1,51 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Filter, MoreHorizontal, ExternalLink } from 'lucide-react';
 import { Badge } from '../../components/common/Badge';
 import { mockPlatformHackathons } from '../../data/mockData';
 import hackathonService from '../../services/hackathonService';
+
+// Row action dropdown for each hackathon
+const HackathonActionMenu = ({ item }) => {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+  useEffect(() => {
+    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+  return (
+    <div ref={ref} style={{ position: 'relative', display: 'inline-block' }}>
+      <button className="grid-btn grid-btn-secondary" style={{ padding: '6px 10px' }} onClick={() => setOpen(p => !p)}>
+        <MoreHorizontal size={14} />
+      </button>
+      {open && (
+        <div style={{
+          position: 'absolute', right: 0, top: '110%', zIndex: 999,
+          background: 'rgba(18, 22, 28, 0.98)', border: '1px solid rgba(255,255,255,0.12)',
+          borderRadius: '12px', padding: '6px', minWidth: '150px',
+          boxShadow: '0 8px 32px rgba(0,0,0,0.5)', backdropFilter: 'blur(24px)'
+        }}>
+          {[
+            { label: '👁 View Details', action: () => alert(`Hackathon: ${item.title}\nOrganizer: ${item.organizer}\nStatus: ${item.status}`) },
+            { label: '🔗 Open in New Tab', action: () => window.open('http://localhost:8081/organizer/hackathons', '_blank') }
+          ].map(({ label, action }) => (
+            <button key={label} onClick={() => { setOpen(false); action(); }}
+              style={{
+                display: 'block', width: '100%', textAlign: 'left',
+                background: 'transparent', border: 'none', color: 'var(--grid-text)',
+                padding: '8px 12px', borderRadius: '8px', cursor: 'pointer', fontSize: '13px'
+              }}
+              onMouseEnter={e => e.currentTarget.style.background = 'rgba(0,245,138,0.1)'}
+              onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
 
 export const HackathonOversight = () => {
   const [activeTab, setActiveTab] = useState('All');
@@ -121,9 +164,7 @@ export const HackathonOversight = () => {
                   <Badge variant={item.status}>{item.status}</Badge>
                 </td>
                 <td style={{ textAlign: 'right' }}>
-                  <button className="grid-btn grid-btn-secondary" style={{ padding: '6px 10px' }}>
-                    <MoreHorizontal size={14} />
-                  </button>
+                  <HackathonActionMenu item={item} />
                 </td>
               </tr>
             ))}

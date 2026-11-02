@@ -1,8 +1,81 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Search, Filter, Users, Check, X, MoreHorizontal } from 'lucide-react';
 import { Badge } from '../../components/common/Badge';
 import { mockRegisteredTeams } from '../../data/mockData';
 import registrationService from '../../services/registrationService';
+
+// Inline action dropdown for each team row
+const ActionMenu = ({ team, onStatusChange }) => {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    const handleClick = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, []);
+
+  const handleAction = async (action) => {
+    setOpen(false);
+    if (action === 'approve') {
+      onStatusChange(team.id, 'Approved');
+      if (typeof team.id === 'number' || !isNaN(Number(team.id))) {
+        try { await registrationService.updateStatus(Number(team.id), 'APPROVED'); } catch (e) { console.warn(e); }
+      }
+    } else if (action === 'reject') {
+      onStatusChange(team.id, 'Rejected');
+      if (typeof team.id === 'number' || !isNaN(Number(team.id))) {
+        try { await registrationService.updateStatus(Number(team.id), 'REJECTED'); } catch (e) { console.warn(e); }
+      }
+    } else if (action === 'view') {
+      alert(`Team: ${team.name}\nStatus: ${team.status}\nRegistered: ${team.date || team.registeredOn || 'N/A'}`);
+    }
+  };
+
+  return (
+    <div ref={ref} style={{ position: 'relative', display: 'inline-block' }}>
+      <button
+        className="grid-btn grid-btn-secondary"
+        style={{ padding: '6px 10px' }}
+        onClick={() => setOpen(prev => !prev)}
+      >
+        <MoreHorizontal size={14} />
+      </button>
+      {open && (
+        <div style={{
+          position: 'absolute', right: 0, top: '110%', zIndex: 999,
+          background: 'rgba(18, 22, 28, 0.98)', border: '1px solid rgba(255,255,255,0.12)',
+          borderRadius: '12px', padding: '6px', minWidth: '140px',
+          boxShadow: '0 8px 32px rgba(0,0,0,0.5), 0 0 20px rgba(0,245,138,0.08)',
+          backdropFilter: 'blur(24px)'
+        }}>
+          {[
+            { label: '👁 View Details', action: 'view' },
+            { label: '✅ Approve', action: 'approve' },
+            { label: '❌ Reject', action: 'reject' }
+          ].map(({ label, action }) => (
+            <button
+              key={action}
+              onClick={() => handleAction(action)}
+              style={{
+                display: 'block', width: '100%', textAlign: 'left',
+                background: 'transparent', border: 'none', color: 'var(--grid-text)',
+                padding: '8px 12px', borderRadius: '8px', cursor: 'pointer',
+                fontSize: '13px', transition: 'background 0.15s ease'
+              }}
+              onMouseEnter={e => e.currentTarget.style.background = 'rgba(0,245,138,0.1)'}
+              onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
 
 export const TeamManagement = () => {
   const [teams, setTeams] = useState(mockRegisteredTeams);
@@ -37,6 +110,10 @@ export const TeamManagement = () => {
     fetchRegistrations();
     return () => { isMounted = false; };
   }, []);
+
+  const handleSingleStatusChange = (id, newStatus) => {
+    setTeams(prev => prev.map(t => t.id === id ? { ...t, status: newStatus } : t));
+  };
 
   const filteredTeams = teams.filter(t =>
     t.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -148,12 +225,10 @@ export const TeamManagement = () => {
                   <Badge variant={team.status}>{team.status}</Badge>
                 </td>
                 <td style={{ color: 'var(--grid-text-secondary)' }}>
-                  {team.registeredOn}
+                  {team.registeredOn || team.date || '—'}
                 </td>
                 <td style={{ textAlign: 'right' }}>
-                  <button className="grid-btn grid-btn-secondary" style={{ padding: '6px 10px' }}>
-                    <MoreHorizontal size={14} />
-                  </button>
+                  <ActionMenu team={team} onStatusChange={handleSingleStatusChange} />
                 </td>
               </tr>
             ))}

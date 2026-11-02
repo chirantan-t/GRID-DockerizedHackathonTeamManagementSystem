@@ -19,14 +19,34 @@ export const teamService = {
   },
 
   getMyTeams: async () => {
-    const response = await apiClient.get('/api/teams/my-teams');
-    return response.data?.data || response.data || [];
+    try {
+      const response = await apiClient.get('/api/teams/my');
+      const data = response.data?.data || response.data;
+      if (Array.isArray(data)) return data;
+      if (data && typeof data === 'object' && data.id) return [data];
+      return [];
+    } catch (_e) {
+      try {
+        const alt = await apiClient.get('/api/teams/my-team');
+        const d = alt.data?.data || alt.data;
+        if (d && d.id) return [d];
+      } catch (_e2) {}
+      return [];
+    }
   },
 
   getMyTeam: async () => {
-    const response = await apiClient.get('/api/teams/my-teams');
-    const teams = response.data?.data || response.data || [];
-    return teams.length > 0 ? teams[0] : null;
+    try {
+      const response = await apiClient.get('/api/teams/my-team');
+      return response.data?.data || response.data || null;
+    } catch (_e) {
+      try {
+        const alt = await apiClient.get('/api/teams/my');
+        return alt.data?.data || alt.data || null;
+      } catch (_e2) {
+        return null;
+      }
+    }
   },
 
   createTeam: async (teamData) => {

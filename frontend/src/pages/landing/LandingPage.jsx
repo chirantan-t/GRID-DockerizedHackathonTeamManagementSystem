@@ -131,10 +131,10 @@ export const LandingPage = () => {
           }}
         />
 
-        {/* 4. Hotspot: Top Right 'Docs' */}
+        {/* 4. Hotspot: Top Right 'Enter' (was 'Docs') - enters portal directly */}
         <div
           onClick={handleEnter}
-          title="Documentation & Portal Access"
+          title="Enter GRID Portal"
           style={{
             position: 'absolute',
             left: '90.2%',
@@ -259,17 +259,25 @@ export const LandingPage = () => {
             </div>
 
             <p style={{ color: '#9aa1ad', fontSize: '15px', lineHeight: 1.6, marginBottom: '20px' }}>
-              GRID is the Command Center for Hackathons — built for developer teams, organizers, and platform administrators to discover, participate, evaluate, and scale engineering events with zero friction.
+              GRID is the all-in-one hackathon command center — built for student developers, organizers, and platform administrators to discover, collaborate, evaluate, and win engineering events with zero friction.
             </p>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '24px' }}>
               <div style={{ background: 'rgba(255, 255, 255, 0.03)', padding: '12px 16px', borderRadius: '12px', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
                 <div style={{ color: '#00f58a', fontWeight: 600, fontSize: '18px' }}>3 Roles</div>
-                <div style={{ color: '#717882', fontSize: '12px' }}>Team, Organizer, Admin</div>
+                <div style={{ color: '#717882', fontSize: '12px' }}>Team, Organizer, Super Admin</div>
+              </div>
+              <div style={{ background: 'rgba(255, 255, 255, 0.03)', padding: '12px 16px', borderRadius: '12px', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
+                <div style={{ color: '#00f58a', fontWeight: 600, fontSize: '18px' }}>Live Data</div>
+                <div style={{ color: '#717882', fontSize: '12px' }}>Real-time scores & registrations</div>
               </div>
               <div style={{ background: 'rgba(255, 255, 255, 0.03)', padding: '12px 16px', borderRadius: '12px', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
                 <div style={{ color: '#00f58a', fontWeight: 600, fontSize: '18px' }}>Glass UI</div>
-                <div style={{ color: '#717882', fontSize: '12px' }}>Apple-inspired ergonomics</div>
+                <div style={{ color: '#717882', fontSize: '12px' }}>Apple-inspired dark ergonomics</div>
+              </div>
+              <div style={{ background: 'rgba(255, 255, 255, 0.03)', padding: '12px 16px', borderRadius: '12px', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
+                <div style={{ color: '#00f58a', fontWeight: 600, fontSize: '18px' }}>DevOps</div>
+                <div style={{ color: '#717882', fontSize: '12px' }}>Docker · Jenkins · Ansible CI/CD</div>
               </div>
             </div>
 
