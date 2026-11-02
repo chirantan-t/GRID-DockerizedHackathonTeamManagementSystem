@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ProtectedLayout } from './components/layout/ProtectedLayout';
+import { ErrorBoundary } from './components/common/ErrorBoundary';
 
 // Landing & Auth
 import { LandingPage } from './pages/landing/LandingPage';
@@ -50,17 +51,23 @@ const RoleBasedRedirect = () => {
 
 export const App = () => {
   return (
-    <AuthProvider>
-      <BrowserRouter>
-        <Routes>
-          {/* Public Landing & Authentication */}
-          <Route path="/" element={<LandingPage />} />
-          <Route path="/login" element={<LoginPage />} />
+    <ErrorBoundary>
+      <AuthProvider>
+        <BrowserRouter>
+          <Routes>
+            {/* Public Landing & Authentication */}
+            <Route path="/" element={<LandingPage />} />
+            <Route path="/login" element={<LoginPage />} />
 
-          {/* Quick Dashboard Redirect */}
-          <Route path="/dashboard" element={<RoleBasedRedirect />} />
+            {/* Quick Dashboard & Panel Redirects */}
+            <Route path="/dashboard" element={<RoleBasedRedirect />} />
+            <Route path="/team" element={<Navigate to="/team/dashboard" replace />} />
+            <Route path="/organizer" element={<Navigate to="/organizer/dashboard" replace />} />
+            <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
+            <Route path="/superadmin" element={<Navigate to="/admin/dashboard" replace />} />
+            <Route path="/superadmin/dashboard" element={<Navigate to="/admin/dashboard" replace />} />
 
-          {/* ================= TEAM ROUTES ================= */}
+            {/* ================= TEAM ROUTES ================= */}
           <Route
             path="/team/explore"
             element={
@@ -311,6 +318,7 @@ export const App = () => {
         </Routes>
       </BrowserRouter>
     </AuthProvider>
+  </ErrorBoundary>
   );
 };
 export default App;

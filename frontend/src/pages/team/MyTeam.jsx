@@ -30,13 +30,20 @@ export const MyTeam = () => {
           try {
             const realMembers = await memberService.getMembers(liveTeam.id);
             if (realMembers && realMembers.length > 0 && isMounted) {
-              setMembers(realMembers.map(m => ({
-                id: m.id,
-                name: m.userName,
-                email: m.userEmail,
-                role: m.memberRole === 'TEAM_LEAD' ? 'Team Lead' : (m.memberRole || 'Developer'),
-                avatar: m.userName ? m.userName.split(' ').map(n => n[0]).join('') : 'CT'
-              })));
+              setMembers(realMembers.map(m => {
+                const memberName = m.fullName || m.userName || m.name || 'Team Member';
+                const memberEmail = m.email || m.userEmail || `${memberName.toLowerCase().replace(/\s+/g, '.')}@vit.edu.in`;
+                const rawRole = m.teamRole || m.memberRole || m.role || 'Developer';
+                const memberRole = String(rawRole).toUpperCase().includes('LEAD') ? 'Team Lead' : (rawRole || 'Developer');
+                const memberAvatar = m.avatar || memberName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
+                return {
+                  id: m.id,
+                  name: memberName,
+                  email: memberEmail,
+                  role: memberRole,
+                  avatar: memberAvatar
+                };
+              }));
             }
           } catch (memErr) {
             console.warn('Could not fetch real members, keeping fallback:', memErr);
@@ -125,20 +132,20 @@ export const MyTeam = () => {
                     boxShadow: '0 0 16px rgba(0, 245, 138, 0.12)'
                   }}
                 >
-                  {member.avatar || member.name.charAt(0)}
+                  {member.avatar || (member.name ? member.name.charAt(0) : 'M')}
                 </div>
                 <div>
                   <div style={{ fontWeight: 700, fontSize: '14.5px', color: 'var(--grid-text)' }}>
-                    {member.name}
+                    {member.name || 'Team Member'}
                   </div>
                   <div style={{ fontSize: '12.5px', color: 'var(--grid-muted)' }}>
-                    {member.email || `${member.name.toLowerCase().replace(' ', '.')}@vit.edu.in`}
+                    {member.email || (member.name ? `${member.name.toLowerCase().replace(/\s+/g, '.')}@vit.edu.in` : 'member@vit.edu.in')}
                   </div>
                 </div>
               </div>
 
-              <span className={`grid-status ${member.role.toLowerCase().includes('lead') ? 'grid-status-ongoing' : 'grid-status-open'}`}>
-                {member.role}
+              <span className={`grid-status ${(member.role || '').toLowerCase().includes('lead') ? 'grid-status-ongoing' : 'grid-status-open'}`}>
+                {member.role || 'Developer'}
               </span>
             </div>
           ))}

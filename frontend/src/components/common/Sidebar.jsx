@@ -131,6 +131,12 @@ export const Sidebar = () => {
 
       {/* Bottom Profile Pill (Exact match from reference image) */}
       <div
+        onClick={() => {
+          if (role === 'ORGANIZER') navigate('/organizer/settings');
+          else if (role === 'SUPER_ADMIN') navigate('/admin/settings');
+          else navigate('/team/settings');
+        }}
+        title="Profile & Settings"
         style={{
           display: 'flex',
           alignItems: 'center',
@@ -140,8 +146,11 @@ export const Sidebar = () => {
           border: '1px solid rgba(255, 255, 255, 0.08)',
           borderRadius: '16px',
           marginTop: 'auto',
-          cursor: 'pointer'
+          cursor: 'pointer',
+          transition: 'background 0.2s ease'
         }}
+        onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.06)'}
+        onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.03)'}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
           <div
